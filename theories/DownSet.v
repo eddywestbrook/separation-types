@@ -83,7 +83,7 @@ Lemma DownSet_return_bind {A B} `{OType A} `{OType B} a (f : A -> DownSet B) :
 Proof.
   intros. simpl. split; simpl; repeat intro.
   - destruct H2. destruct H2. rewrite H2 in H3. assumption.
-  - exists a; split; [ reflexivity | assumption ].
+  - exists a; split; simpl; [ reflexivity | assumption ].
 Qed.
 
 Lemma DownSet_bind_return {A B} `{OType A} `{OType B} (ds: DownSet A) :
@@ -91,7 +91,7 @@ Lemma DownSet_bind_return {A B} `{OType A} `{OType B} (ds: DownSet A) :
 Proof.
   split; simpl; repeat intro.
   - destruct H1. destruct H1. rewrite H2. assumption.
-  - exists a; split; [ assumption | reflexivity ].
+  - exists a; split; simpl; [ assumption | reflexivity ].
 Qed.
 
 Lemma DownSet_assoc {A B C} `{OType A} `{OType B} `{OType C}

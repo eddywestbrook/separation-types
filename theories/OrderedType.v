@@ -46,6 +46,10 @@ Notation "x <o= y" :=
 Notation "x =o= y" :=
   (oeq x y) (no associativity, at level 70).
 
+(* Do not simplify x <o= y or x =o= y *)
+Arguments oleq : simpl never.
+Arguments oeq : simpl never.
+
 (* FIXME: figure out what versions of this we need for rewriting! *)
 Instance Proper_oleq_oleq A `{OType A}
   : Proper (oleq --> oleq ==> Basics.impl) (@oleq A _).
