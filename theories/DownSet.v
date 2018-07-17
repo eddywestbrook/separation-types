@@ -31,6 +31,9 @@ Qed.
 Program Definition emptyDownSet {A} `{OType A} : DownSet A :=
   {| inDownSet a := False |}.
 
+Program Definition completeDownSet {A} `{OType A} : DownSet A :=
+  {| inDownSet a := True |}.
+
 Program Definition downClose {A} `{OType A} (a:A) : DownSet A :=
   {| inDownSet a' := a' <o= a |}.
 Next Obligation.
@@ -67,6 +70,13 @@ Proof.
   exists a; split.
   - apply Rds; assumption.
   - apply Rf; assumption.
+Qed.
+
+Instance Proper_bindDownSet_equiv A B `{OType A} `{OType B} :
+  Proper (oeq ==> oeq ==> oeq) (bindDownSet (A:=A) (B:=B)).
+Proof.
+  intros ds1 ds2 Rds f1 f2 Rf; destruct Rds; destruct Rf.
+  split; apply Proper_bindDownSet; assumption.
 Qed.
 
 Definition mapDownSet {A B} `{OType A} `{OType B} (f:A -> B) dsA : DownSet B :=
@@ -153,45 +163,77 @@ Qed.
 
 
 (***
- *** DownSets of Functions
+ *** DownSets as Graphs of Proper Functions
  ***)
 
-(* We can convert a function from A to sets of B to a set of functions from A to
-B, by taking the set of all functions that are in f pointwise *)
-Program Definition lambdaDownSet {A B} `{OType B}
-        (f: A -> DownSet B) : DownSet (A -> B) :=
-  {| inDownSet := fun g => forall a, inDownSet (f a) (g a); |}.
-Next Obligation.
-  eapply downSetClosed; [ apply H0 | apply H1 ].
-Defined.
+(* A function graph for a Proper function f is a set of (in, out) pairs
+satisfying out <o= f in. The graph is thus closed under out getting smaller and
+in getting bigger. *)
+Definition FunGraph A B `{OType A} `{OType B} := DownSet (Flip A * B).
 
-Instance Proper_lambdaDownSet {A B} `{OType B} :
+Definition lambdaDownSet {A B} `{OType A} `{OType B}
+           (f: A -> DownSet B) : FunGraph A B :=
+  bindDownSet completeDownSet
+              (fun a => mapDownSet (fun b => (flip a,b)) (f a)).
+
+Instance Proper_lambdaDownSet {A B} `{OType A} `{OType B} :
   Proper (oleq ==> oleq) (lambdaDownSet (A:=A) (B:=B)).
 Proof.
-  intros f1 f2 R12 g in_g a. apply R12. apply in_g.
+  intros f1 f2 Rf. unfold lambdaDownSet.
+  apply Proper_bindDownSet; try reflexivity.
+  intro a. apply Proper_bindDownSet; [ apply Rf; assumption | ].
+  intro b. reflexivity.
 Qed.
 
-Definition applyDownSet {A B} `{OType B} (dsF: DownSet (A -> B)) (a:A) : DownSet B :=
-  mapDownSet (fun f => f a) dsF.
+Program Definition applyDownSet {A B} `{OType A} `{OType B}
+        (f: FunGraph A B) (a : A) : DownSet B :=
+  {| inDownSet := fun b => inDownSet f (flip a,b) |}.
+Next Obligation.
+  rewrite H1. assumption.
+Defined.
 
-(* NOTE: applyDownSet is not Proper in its A argument unless we somehow build
-Proper functions from the functions in dsF... *)
-Instance Proper_applyDownSet {A B} `{OType B} :
-  Proper (oleq ==> eq ==> oleq) (applyDownSet (A:=A) (B:=B)).
+Instance Proper_applyDownSet {A B} `{OType A} `{OType B} :
+  Proper (oleq ==> oleq ==> oleq) applyDownSet.
 Proof.
-  intros ds1 ds2 Rds a1 a2 eq_a b in_b. destruct in_b as [ g [ in_g1 in_g2 ]].
-  rewrite <- eq_a.
-  exists g. split.
-  - apply Rds; assumption.
-  - assumption.
+  intros f1 f2 Rf a1 a2 Ra b. simpl. rewrite Rf. rewrite Ra. reflexivity.
 Qed.
 
-(* NOTE: the reverse only holds when f a is non-empty for all a; i.e., when
-   there is some function g such that inDownSet (f a) (g a) for all a *)
-Lemma downSetBeta {A B} `{OType B} (f: A -> DownSet B) :
-  applyDownSet (lambdaDownSet f) <o= f.
+Instance Proper_applyDownSet_equiv {A B} `{OType A} `{OType B} :
+  Proper (oeq ==> oeq ==> oeq) applyDownSet.
 Proof.
-  simpl; intros a b in_b.
-  destruct in_b as [ g [ in_ga Rbg ]].
-  eapply downSetClosed; [ apply Rbg | apply in_ga ].
+  intros f1 f2 Rf a1 a2 Ra; destruct Rf; destruct Ra.
+  split; apply Proper_applyDownSet; assumption.
+Qed.
+
+
+(* lambdaDownSet can make the outputs for a function bigger if it is not Proper,
+because (in1, out) being in the graph implies that (in2, out) for any in1 <o=
+in2, even if (f in2) is incomparable to out *)
+Lemma downSetBeta_leq {A B} `{OType A} `{OType B} (f: A -> DownSet B) :
+  f <o= applyDownSet (lambdaDownSet f).
+Proof.
+  intros a b in_b. simpl.
+  exists a; split; [ trivial | ].
+  exists b; split; [ assumption | reflexivity ].
+Qed.
+
+(* If a function is Proper, however, then equality holds *)
+Lemma downSetBeta {A B} `{OType A} `{OType B} (f: A -> DownSet B) :
+  Proper (oleq ==> oleq) f -> f =o= applyDownSet (lambdaDownSet f).
+Proof.
+  intros prp. split; [ apply downSetBeta_leq | ].
+  intros a b [ a' [ _ [ b' [ in_b' [ Ra Rb ] ]]]].
+  unfold oleq, OTFlip in Ra. simpl in Ra, Rb.
+  rewrite Rb. rewrite <- Ra. assumption.
+Qed.
+
+Lemma downSetEta {A B} `{OType A} `{OType B} (f: FunGraph A B) :
+  lambdaDownSet (applyDownSet f) =o= f.
+Proof.
+  split.
+  { intros [ a b ] [ a' [ _ [ b' [ in_b' [ Ra Rb ] ]]]]. simpl in Ra, Rb.
+    rewrite Ra. rewrite Rb. assumption. }
+  { intros [[ a ] b ] in_ab. simpl.
+    exists a; split; [ trivial | ].
+    exists b; split; [ assumption | reflexivity ]. }
 Qed.
