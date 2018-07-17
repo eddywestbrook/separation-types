@@ -74,12 +74,6 @@ Proof.
   intros x1 x2 Rx y1 y2 Ry. rewrite Rx. rewrite Ry. reflexivity.
 Qed.
 
-Instance Proper_oeq_partial A `{OType A} a :
-  Proper (oeq ==> Basics.flip Basics.impl) (@oeq A _ a).
-Proof.
-  intros x1 x2 Rx. rewrite Rx. reflexivity.
-Qed.
-
 
 (***
  *** Commonly-Used Ordered Types
@@ -151,7 +145,7 @@ Proof.
   { intros o1 o2 o3 R12; destruct R12; intros R23; inversion R23;
       constructor; try assumption.
     etransitivity; eassumption. }
-Qed.
+Defined.
 
 
 (* The pointwise relation on sum types *)
@@ -190,17 +184,34 @@ Qed.
 
 (* The pointwise relation on functions *)
 Instance OTarrow A B `{OType B} : OType (A -> B) :=
-  {| oleq := fun f g => forall a, f a <o= g a |}.
+  {| oleq := pointwise_relation A oleq |}.
 Proof.
-  repeat constructor.
-  { intro. reflexivity. }
-  { intro; intros. transitivity (y a); [ apply H0 | apply H1 ]. }
+  constructor; typeclasses eauto.
 Defined.
 
 
 (***
- *** Proper Instances for Simple Ordered Types
+ *** Proper Instances for Common Operations
  ***)
+
+(* Functions *)
+
+(* This is needed to rewrite f to g in context (f x <o= g x) *)
+Instance subrelation_OTarrow_pointwise A B `{OType B} :
+  subrelation oleq (pointwise_relation A oleq).
+Proof.
+  intros f g Rfg. assumption.
+Qed.
+
+(* This is needed to rewrite f to g in context (f x =o= g x) *)
+Instance subrelation_OTarrow_equiv_pointwise A B `{OType B} :
+  subrelation oeq (pointwise_relation A oeq).
+Proof.
+  intros f g Rfg a. destruct Rfg. split; [ apply H0 | apply H1 ].
+Qed.
+
+
+(* Pairs *)
 
 Instance Proper_pair A B `{OType A} `{OType B} :
   Proper (oleq ==> oleq ==> oleq) (pair : A -> B -> A*B).
@@ -238,6 +249,137 @@ Instance Proper_snd_equiv A B `{OType A} `{OType B} :
 Proof.
   intros p1 p2 Rp. destruct Rp.
   split; eapply Proper_snd; assumption.
+Qed.
+
+
+(* Options *)
+
+Instance Proper_Some A `{OType A} : Proper (oleq ==> oleq) Some.
+Proof.
+  constructor; assumption.
+Qed.
+
+Instance Proper_Some_equiv A `{OType A} : Proper (oeq ==> oeq) Some.
+Proof.
+  split; constructor; destruct H0; assumption.
+Qed.
+
+(* Eliminator for the option type *)
+Definition optElim {A B} (f : A -> B) (g : B) (o : option A) : B :=
+  match o with
+  | Some a => f a
+  | None => g
+  end.
+
+(* The Proper instances for optElim are complicated by the fact that we can only
+chain o if f is Proper, so we write two different Proper instances for optElim,
+one that requires f to be Proper, and so it cannot change, and one that does
+not, so f can change but o cannot. *)
+Instance Proper_optElim1 A B `{OType A} `{OType B} :
+  Proper (oleq ==> oleq ==> eq ==> oleq) (@optElim A B).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o. destruct o2; simpl.
+  - apply Rf.
+  - apply Rg.
+Qed.
+
+Instance Proper_optElim1_equiv A B `{OType A} `{OType B} :
+  Proper (oeq ==> oeq ==> eq ==> oeq) (@optElim A B).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o.
+  destruct o2; simpl; try assumption.
+  rewrite Rf. reflexivity.
+Qed.
+
+Instance Proper_optElim2 A B `{OType A} `{OType B} (f: A -> B) :
+  Proper (oleq ==> oleq) f ->
+  Proper (oleq ==> oleq ==> oleq) (optElim f).
+Proof.
+  intros prp g1 g2 Rg o1 o2 Ro. destruct Ro; simpl.
+  - assumption.
+  - apply prp; assumption.
+Qed.
+
+Instance Proper_optElim2_equiv A B `{OType A} `{OType B} (f: A -> B) :
+  Proper (oleq ==> oleq) f ->
+  Proper (oeq ==> oeq ==> oeq) (optElim f).
+Proof.
+  intros prp g1 g2 Rg o1 o2 Ro.
+  destruct Rg; destruct Ro; split; apply (Proper_optElim2 A B); assumption.
+Qed.
+
+
+(* Sum types *)
+
+Instance Proper_inl A B `{OType A} `{OType B} :
+  Proper (oleq ==> oleq) (inl : A -> A+B).
+Proof.
+  constructor; assumption.
+Qed.
+
+Instance Proper_inl_equiv A B `{OType A} `{OType B} :
+  Proper (oeq ==> oeq) (inl : A -> A+B).
+Proof.
+  split; constructor; destruct H1; assumption.
+Qed.
+
+Instance Proper_inr A B `{OType A} `{OType B} :
+  Proper (oleq ==> oleq) (inr : B -> A+B).
+Proof.
+  constructor; assumption.
+Qed.
+
+Instance Proper_inr_equiv A B `{OType A} `{OType B} :
+  Proper (oeq ==> oeq) (inr : B -> A+B).
+Proof.
+  split; constructor; destruct H1; assumption.
+Qed.
+
+(* Eliminator for the sum type *)
+Definition sumElim {A B C} (f : A -> C) (g : B -> C) (s : A+B) : C :=
+  match s with
+  | inl a => f a
+  | inr b => g b
+  end.
+
+(* The Proper instances for sumElim are complicated in the same way as those for
+optElim, that the elimination functions f and g must be Proper in order to
+change the argument being eliminated. As with optElim, we handle this with two
+different instances. *)
+Instance Proper_sumElim1 A B C `{OType A} `{OType B} `{OType C} :
+  Proper (oleq ==> oleq ==> eq ==> oleq) (@sumElim A B C).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg s1 s2 eq_s. rewrite eq_s. destruct s2; simpl.
+  - apply Rf.
+  - apply Rg.
+Qed.
+
+Instance Proper_sumElim1_equiv A B C `{OType A} `{OType B} `{OType C} :
+  Proper (oeq ==> oeq ==> eq ==> oeq) (@sumElim A B C).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg s1 s2 eq_s; destruct Rf; destruct Rg; split;
+    apply (Proper_sumElim1 A B C); try assumption.
+  symmetry; assumption.
+Qed.
+
+Instance Proper_sumElim2 A B C `{OType A} `{OType B} `{OType C}
+         (f: A -> C) (g: B -> C) :
+  Proper (oleq ==> oleq) f ->
+  Proper (oleq ==> oleq) g ->
+  Proper (oleq ==> oleq) (sumElim f g).
+Proof.
+  intros prp_f prp_g s1 s2 Rs.
+  destruct Rs; simpl; rewrite H2; reflexivity.
+Qed.
+
+Instance Proper_sumElim2_equiv A B C `{OType A} `{OType B} `{OType C}
+         (f: A -> C) (g: B -> C) :
+  Proper (oleq ==> oleq) f ->
+  Proper (oleq ==> oleq) g ->
+  Proper (oeq ==> oeq) (sumElim f g).
+Proof.
+  intros prp_f prp_g s1 s2 Rs.
+  destruct Rs; split; apply (Proper_sumElim2 A B C); assumption.
 Qed.
 
 
