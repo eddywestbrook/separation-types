@@ -163,9 +163,12 @@ Instance OTlist A `{OType A} : OType (list A) := {| oleq := listR A |}.
 Proof.
   constructor.
   { intro l; induction l; constructor; try reflexivity; assumption. }
-  { intros l1 l2 l3 
-
-FIXME HERE: finish this!
+  { intros l1 l2 l3 R12; revert l3; induction R12; intros l3 R23.
+    - assumption.
+    - inversion R23. constructor.
+      + etransitivity; eassumption.
+      + apply IHR12; assumption. }
+Qed.
 
 
 (* The pointwise relation on functions *)
