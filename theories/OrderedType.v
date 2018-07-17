@@ -137,13 +137,30 @@ Proof.
 Defined.
 
 
-(* The sort-of pointwise relation on sum types *)
-Inductive sumR {A B} (RA:OType A) (RB:OType B) : A+B -> A+B -> Prop :=
-| sumR_inl a1 a2 : oleq a1 a2 -> sumR RA RB (inl a1) (inl a2)
-| sumR_inr b1 b2 : oleq b1 b2 -> sumR RA RB (inr b1) (inr b2).
+(* The pointwise relation on option types *)
+Inductive optionR A `{OType A} : option A -> option A -> Prop :=
+| optionR_None : optionR A None None
+| optionR_Some a1 a2 : a1 <o= a2 -> optionR A (Some a1) (Some a2)
+.
 
-Instance OTsum A B (RA:OType A) (RB:OType B) : OType (A+B) :=
-  {| oleq := sumR RA RB |}.
+Instance OToption A `{OType A} : OType (option A) :=
+  {| oleq := optionR A |}.
+Proof.
+  constructor.
+  { intros [ a | ]; constructor; reflexivity. }
+  { intros o1 o2 o3 R12; destruct R12; intros R23; inversion R23;
+      constructor; try assumption.
+    etransitivity; eassumption. }
+Qed.
+
+
+(* The pointwise relation on sum types *)
+Inductive sumR A B `{OType A} `{OType B} : A+B -> A+B -> Prop :=
+| sumR_inl a1 a2 : oleq a1 a2 -> sumR A B (inl a1) (inl a2)
+| sumR_inr b1 b2 : oleq b1 b2 -> sumR A B (inr b1) (inr b2).
+
+Instance OTsum A B `{OType A} `{OType B} : OType (A+B) :=
+  {| oleq := sumR A B |}.
 Proof.
   repeat constructor; intro; intros.
   { destruct x; constructor; reflexivity. }
