@@ -198,7 +198,41 @@ Defined.
  *** Proper Instances for Common Operations
  ***)
 
-(* Functions *)
+(** Flip **)
+
+Instance Proper_flip A `{OType A} : Proper (Basics.flip oleq ==> oleq) flip.
+Proof.
+  intros a1 a2 Ra; assumption.
+Qed.
+
+Instance Proper_flip_equiv A `{OType A} : Proper (oeq ==> oeq) flip.
+Proof.
+  intros a1 a2 Ra; destruct Ra; split; apply Proper_flip; assumption.
+Qed.
+
+Instance Proper_unflip A `{OType A} : Proper (Basics.flip oleq ==> oleq) unflip.
+Proof.
+  intros a1 a2 Ra; assumption.
+Qed.
+
+Instance Proper_unflip_equiv A `{OType A} : Proper (oeq ==> oeq) unflip.
+Proof.
+  intros a1 a2 Ra; destruct Ra; split; apply Proper_unflip; assumption.
+Qed.
+
+
+(** Functions **)
+
+(* Extensionality for functions w.r.t. oeq (the one for oleq is definitionally
+true already) *)
+Lemma funOExt A B `{OType B} (f g : A -> B) :
+  f =o= g <-> (forall x, f x =o= g x).
+Proof.
+  split.
+  { intros [ Rfg Rgf ] x. split; [ apply Rfg | apply Rgf ]. }
+  { intro all_fg; split; intro x;
+      destruct (all_fg x) as [ Rfg Rgf ]; assumption. }
+Qed.
 
 (* This is needed to rewrite f to g in context (f x <o= g x) *)
 Instance subrelation_OTarrow_pointwise A B `{OType B} :
@@ -215,7 +249,7 @@ Proof.
 Qed.
 
 
-(* Pairs *)
+(** Pairs **)
 
 Instance Proper_pair A B `{OType A} `{OType B} :
   Proper (oleq ==> oleq ==> oleq) (pair : A -> B -> A*B).
@@ -256,7 +290,7 @@ Proof.
 Qed.
 
 
-(* Options *)
+(** Options **)
 
 Instance Proper_Some A `{OType A} : Proper (oleq ==> oleq) Some.
 Proof.
@@ -275,11 +309,26 @@ Definition optElim {A B} (f : A -> B) (g : B) (o : option A) : B :=
   | None => g
   end.
 
-(* The Proper instances for optElim are complicated by the fact that we can only
-chain o if f is Proper, so we write two different Proper instances for optElim,
-one that requires f to be Proper, and so it cannot change, and one that does
-not, so f can change but o cannot. *)
-Instance Proper_optElim1 A B `{OType A} `{OType B} :
+(* NOTE: this is strictly less powerful than what would seem to be the natural
+   signature (oleq ==> oleq ==> oleq ==> oleq), but is needed because the
+   functions f might not be Proper. *)
+Instance Proper_optElim A B `{OType A} `{OType B} :
+  Proper ((oleq ==> oleq) ==> oleq ==> oleq ==> oleq) (@optElim A B).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg o1 o2 Ro. destruct Ro; simpl; try assumption.
+  apply Rf; assumption.
+Qed.
+
+Instance Proper_optElim_equiv A B `{OType A} `{OType B} :
+  Proper ((oeq ==> oeq) ==> oeq ==> eq ==> oeq) (@optElim A B).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o.
+  destruct o2; simpl; try assumption.
+  apply Rf. reflexivity.
+Qed.
+
+(* If we do not change o then we do not need f to be Proper *)
+Instance Proper_optElim_eq A B `{OType A} `{OType B} :
   Proper (oleq ==> oleq ==> eq ==> oleq) (@optElim A B).
 Proof.
   intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o. destruct o2; simpl.
@@ -287,33 +336,16 @@ Proof.
   - apply Rg.
 Qed.
 
-Instance Proper_optElim1_equiv A B `{OType A} `{OType B} :
-  Proper (oeq ==> oeq ==> eq ==> oeq) (@optElim A B).
+Instance Proper_optElim_eq_equiv A B `{OType A} `{OType B} :
+  Proper ((oeq ==> oeq) ==> oeq ==> eq ==> oeq) (@optElim A B).
 Proof.
   intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o.
   destruct o2; simpl; try assumption.
-  rewrite Rf. reflexivity.
-Qed.
-
-Instance Proper_optElim2 A B `{OType A} `{OType B} (f: A -> B) :
-  Proper (oleq ==> oleq) f ->
-  Proper (oleq ==> oleq ==> oleq) (optElim f).
-Proof.
-  intros prp g1 g2 Rg o1 o2 Ro. destruct Ro; simpl.
-  - assumption.
-  - apply prp; assumption.
-Qed.
-
-Instance Proper_optElim2_equiv A B `{OType A} `{OType B} (f: A -> B) :
-  Proper (oleq ==> oleq) f ->
-  Proper (oeq ==> oeq ==> oeq) (optElim f).
-Proof.
-  intros prp g1 g2 Rg o1 o2 Ro.
-  destruct Rg; destruct Ro; split; apply (Proper_optElim2 A B); assumption.
+  apply Rf. reflexivity.
 Qed.
 
 
-(* Sum types *)
+(** Sum types **)
 
 Instance Proper_inl A B `{OType A} `{OType B} :
   Proper (oleq ==> oleq) (inl : A -> A+B).
@@ -346,11 +378,26 @@ Definition sumElim {A B C} (f : A -> C) (g : B -> C) (s : A+B) : C :=
   | inr b => g b
   end.
 
-(* The Proper instances for sumElim are complicated in the same way as those for
-optElim, that the elimination functions f and g must be Proper in order to
-change the argument being eliminated. As with optElim, we handle this with two
-different instances. *)
-Instance Proper_sumElim1 A B C `{OType A} `{OType B} `{OType C} :
+(* As with optElim, the more complex signature here is needed because the
+eliminator functions f and g might not be Proper *)
+Instance Proper_sumElim A B C `{OType A} `{OType B} `{OType C} :
+  Proper ((oleq ==> oleq) ==> (oleq ==> oleq) ==> oleq ==> oleq) (@sumElim A B C).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg s1 s2 Rs.
+  destruct Rs; [ apply Rf | apply Rg ]; assumption.
+Qed.
+
+Instance Proper_sumElim1_equiv A B C `{OType A} `{OType B} `{OType C} :
+  Proper ((oeq ==> oeq) ==> (oeq ==> oeq) ==> oeq ==> oeq) (@sumElim A B C).
+Proof.
+  intros f1 f2 Rf g1 g2 Rg s1 s2 [ R12 R21 ].
+  destruct R12; inversion R21; simpl; [ apply Rf | apply Rg ]; split; assumption.
+Qed.
+
+
+(* Similarly to optElim, if we do not change the value being eliminated then we
+do not need the elimination functions to be Proper *)
+Instance Proper_sumElim_eq A B C `{OType A} `{OType B} `{OType C} :
   Proper (oleq ==> oleq ==> eq ==> oleq) (@sumElim A B C).
 Proof.
   intros f1 f2 Rf g1 g2 Rg s1 s2 eq_s. rewrite eq_s. destruct s2; simpl.
@@ -358,32 +405,12 @@ Proof.
   - apply Rg.
 Qed.
 
-Instance Proper_sumElim1_equiv A B C `{OType A} `{OType B} `{OType C} :
+Instance Proper_sumElim1_eq_equiv A B C `{OType A} `{OType B} `{OType C} :
   Proper (oeq ==> oeq ==> eq ==> oeq) (@sumElim A B C).
 Proof.
   intros f1 f2 Rf g1 g2 Rg s1 s2 eq_s; destruct Rf; destruct Rg; split;
-    apply (Proper_sumElim1 A B C); try assumption.
+    apply (Proper_sumElim_eq A B C); try assumption.
   symmetry; assumption.
-Qed.
-
-Instance Proper_sumElim2 A B C `{OType A} `{OType B} `{OType C}
-         (f: A -> C) (g: B -> C) :
-  Proper (oleq ==> oleq) f ->
-  Proper (oleq ==> oleq) g ->
-  Proper (oleq ==> oleq) (sumElim f g).
-Proof.
-  intros prp_f prp_g s1 s2 Rs.
-  destruct Rs; simpl; rewrite H2; reflexivity.
-Qed.
-
-Instance Proper_sumElim2_equiv A B C `{OType A} `{OType B} `{OType C}
-         (f: A -> C) (g: B -> C) :
-  Proper (oleq ==> oleq) f ->
-  Proper (oleq ==> oleq) g ->
-  Proper (oeq ==> oeq) (sumElim f g).
-Proof.
-  intros prp_f prp_g s1 s2 Rs.
-  destruct Rs; split; apply (Proper_sumElim2 A B C); assumption.
 Qed.
 
 
