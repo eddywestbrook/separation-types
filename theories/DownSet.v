@@ -148,7 +148,7 @@ Proof.
       intros a' b' in_b'. apply in_b'. assumption.
     + apply H0; assumption.
   - split; [ | apply H0 ].
-    simpl; intros; intro; apply (H1 _ (prp _ _ H0)).
+    simpl; repeat intro. apply (H1 _ (prp _ _ H0)).
 Qed.
 
 
