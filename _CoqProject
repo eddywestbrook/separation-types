@@ -3,4 +3,5 @@
 ./theories/OrderedType.v
 ./theories/Lens.v
 ./theories/DownSet.v
+./theories/Monad.v
 ./theories/TraceMonad.v

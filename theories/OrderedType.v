@@ -153,6 +153,21 @@ Proof.
 Defined.
 
 
+(* The pointwise relation on lists of equal lengths *)
+Inductive listR A `{OType A} : list A -> list A -> Prop :=
+| listR_nil : listR A [] []
+| listR_cons a1 a2 l1 l2 : a1 <o= a2 -> listR A l1 l2 ->
+                           listR A (a1 :: l1) (a2 :: l2).
+
+Instance OTlist A `{OType A} : OType (list A) := {| oleq := listR A |}.
+Proof.
+  constructor.
+  { intro l; induction l; constructor; try reflexivity; assumption. }
+  { intros l1 l2 l3 
+
+FIXME HERE: finish this!
+
+
 (* The pointwise relation on functions *)
 Instance OTArrow A B `{OType B} : OType (A -> B) :=
   {| oleq := fun f g => forall a, f a <o= g a |}.

@@ -21,7 +21,7 @@ Proof.
   - intros ds1 ds2 ds3; transitivity (inDownSet ds2); assumption.
 Defined.
 
-Instance Proper_inDownSet A `{OType A} (ds : DownSet A) :
+Instance Proper_inDownSet A `{OType A} :
   Proper (oleq ==> oleq --> oleq) (inDownSet (A:=A)).
 Proof.
   repeat intro.
@@ -72,6 +72,47 @@ Qed.
 Definition mapDownSet {A B} `{OType A} `{OType B} (f:A -> B) dsA : DownSet B :=
   bindDownSet dsA (fun a => downClose (f a)).
 
+
+(***
+ *** Monad laws for DownSet
+ ***)
+
+Lemma DownSet_return_bind {A B} `{OType A} `{OType B} a (f : A -> DownSet B) :
+  Proper (oleq ==> oleq) f ->
+  bindDownSet (downClose a) f =o= f a.
+Proof.
+  intros. simpl. split; simpl; repeat intro.
+  - destruct H2. destruct H2. rewrite H2 in H3. assumption.
+  - exists a; split; [ reflexivity | assumption ].
+Qed.
+
+Lemma DownSet_bind_return {A B} `{OType A} `{OType B} (ds: DownSet A) :
+  bindDownSet ds downClose =o= ds.
+Proof.
+  split; simpl; repeat intro.
+  - destruct H1. destruct H1. rewrite H2. assumption.
+  - exists a; split; [ assumption | reflexivity ].
+Qed.
+
+Lemma DownSet_assoc {A B C} `{OType A} `{OType B} `{OType C}
+      ds (f: A -> DownSet B) (g: B -> DownSet C) :
+  bindDownSet (bindDownSet ds f) g =o=
+  bindDownSet ds (fun x => bindDownSet (f x) g).
+Proof.
+  split; simpl; intro c; repeat intro.
+  - destruct H2 as [ b [ [ a [ in_a in_b ]] in_c]].
+    exists a; split; [ assumption | ].
+    exists b; split; assumption.
+  - destruct H2 as [ a [ in_a [ b [ in_b in_c ]]]].
+    exists b; split; [ | assumption ].
+    exists a; split; assumption.
+Qed.
+
+
+(***
+ *** DownSets and Fixed-points
+ ***)
+
 (* We define the fixed-point of a set function transformer f as the intersection
 of all f-closed functions g *)
 Program Definition fixDownSet {A B} `{OType B}
@@ -110,6 +151,10 @@ Proof.
     simpl; intros; intro; apply (H1 _ (prp _ _ H0)).
 Qed.
 
+
+(***
+ *** DownSets of Functions
+ ***)
 
 (* We can convert a function from A to sets of B to a set of functions from A to
 B, by taking the set of all functions that are in f pointwise *)
