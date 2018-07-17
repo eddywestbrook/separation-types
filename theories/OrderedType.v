@@ -189,7 +189,7 @@ Qed.
 
 
 (* The pointwise relation on functions *)
-Instance OTArrow A B `{OType B} : OType (A -> B) :=
+Instance OTarrow A B `{OType B} : OType (A -> B) :=
   {| oleq := fun f g => forall a, f a <o= g a |}.
 Proof.
   repeat constructor.
