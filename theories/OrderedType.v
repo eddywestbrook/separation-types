@@ -164,7 +164,7 @@ Instance OTsum A B `{OType A} `{OType B} : OType (A+B) :=
 Proof.
   repeat constructor; intro; intros.
   { destruct x; constructor; reflexivity. }
-  { destruct H; inversion H0.
+  { destruct H1; inversion H2.
     - constructor; transitivity a2; assumption.
     - constructor; transitivity b2; assumption. }
 Defined.
