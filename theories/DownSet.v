@@ -185,6 +185,12 @@ Proof.
   intro b. reflexivity.
 Qed.
 
+Instance Proper_lambdaDownSet_equiv {A B} `{OType A} `{OType B} :
+  Proper (oeq ==> oeq) (lambdaDownSet (A:=A) (B:=B)).
+Proof.
+  intros f1 f2 Rf. destruct Rf. split; apply Proper_lambdaDownSet; assumption.
+Qed.
+
 Program Definition applyDownSet {A B} `{OType A} `{OType B}
         (f: FunGraph A B) (a : A) : DownSet B :=
   {| inDownSet := fun b => inDownSet f (flip a,b) |}.
@@ -193,13 +199,13 @@ Next Obligation.
 Defined.
 
 Instance Proper_applyDownSet {A B} `{OType A} `{OType B} :
-  Proper (oleq ==> oleq ==> oleq) applyDownSet.
+  Proper (oleq ==> oleq ==> oleq) (applyDownSet (A:=A) (B:=B)).
 Proof.
   intros f1 f2 Rf a1 a2 Ra b. simpl. rewrite Rf. rewrite Ra. reflexivity.
 Qed.
 
 Instance Proper_applyDownSet_equiv {A B} `{OType A} `{OType B} :
-  Proper (oeq ==> oeq ==> oeq) applyDownSet.
+  Proper (oeq ==> oeq ==> oeq) (applyDownSet (A:=A) (B:=B)).
 Proof.
   intros f1 f2 Rf a1 a2 Ra; destruct Rf; destruct Ra.
   split; apply Proper_applyDownSet; assumption.
@@ -218,13 +224,21 @@ Proof.
 Qed.
 
 (* If a function is Proper, however, then equality holds *)
-Lemma downSetBeta {A B} `{OType A} `{OType B} (f: A -> DownSet B) :
-  Proper (oleq ==> oleq) f -> f =o= applyDownSet (lambdaDownSet f).
+Lemma downSetBeta_fun {A B} `{OType A} `{OType B} (f: A -> DownSet B) :
+  Proper (oleq ==> oleq) f -> applyDownSet (lambdaDownSet f) =o= f.
 Proof.
-  intros prp. split; [ apply downSetBeta_leq | ].
+  intros prp. split; [ | apply downSetBeta_leq ].
   intros a b [ a' [ _ [ b' [ in_b' [ Ra Rb ] ]]]].
   unfold oleq, OTFlip in Ra. simpl in Ra, Rb.
   rewrite Rb. rewrite <- Ra. assumption.
+Qed.
+
+(* Stupid Coq won't rewrite to the left of an application unless we tell it how
+to, using this lemma *)
+Lemma downSetBeta {A B} `{OType A} `{OType B} (f: A -> DownSet B) a :
+  Proper (oleq ==> oleq) f -> applyDownSet (lambdaDownSet f) a =o= f a.
+  intro prp.
+  destruct (downSetBeta_fun f prp). split; [ apply H1 | apply H2 ].
 Qed.
 
 Lemma downSetEta {A B} `{OType A} `{OType B} (f: FunGraph A B) :
