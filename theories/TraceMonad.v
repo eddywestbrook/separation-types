@@ -6,6 +6,69 @@ Import ListNotations.
 
 
 (***
+ *** Execution Traces
+ ***)
+
+(* An execution trace = a list of intermediate states, followed by a final state
+if the execution terminated *)
+Inductive trace St A : Type :=
+| Trace_NonTerm : trace St A
+| Trace_Term (st:St) (a:A) : trace St A
+| Trace_Step (st:St) (tr:trace St A) : trace St A.
+
+Arguments Trace_NonTerm {St A}.
+Arguments Trace_Term {St A} st a.
+Arguments Trace_Step {St A} st tr.
+
+(* Non-terminating traces approximate longer traces that are pointwise bigger *)
+Inductive traceR St A `{OType St} `{OType A} : trace St A -> trace St A -> Prop :=
+| traceR_NonTerm (tr:trace St A) : traceR St A Trace_NonTerm tr
+| traceR_Term st1 st2 a1 a2 :
+    st1 <o= st2 -> a1 <o= a2 ->
+    traceR St A (Trace_Term st1 a1) (Trace_Term st2 a2)
+| traceR_Step st1 st2 tr1 tr2 :
+    st1 <o= st2 -> traceR St A tr1 tr2 ->
+    traceR St A (Trace_Step st1 tr1) (Trace_Step st2 tr2)
+.
+
+Instance OTtrace St A `{OType St} `{OType A} : OType (trace St A) :=
+  {| oleq := traceR St A |}.
+Proof.
+  constructor.
+  { intro tr. induction tr; constructor; try reflexivity. assumption. }
+  { intros tr1 tr2 tr3 R12; revert tr3; induction R12; intros tr3 R23.
+    - constructor.
+    - inversion R23.
+      constructor; try assumption; etransitivity; eassumption.
+    - inversion R23. constructor; [ etransitivity; eassumption | ].
+      apply IHR12; assumption. }
+Defined.
+
+Instance Proper_Trace_Term St A `{OType St} `{OType A} :
+  Proper (oleq ==> oleq ==> oleq) (@Trace_Term St A).
+Proof.
+  intros st1 st2 Rst a1 a2 Ra; constructor; assumption.
+Qed.
+
+Instance Proper_Trace_Step St A `{OType St} `{OType A} :
+  Proper (oleq ==> oleq ==> oleq) (@Trace_Step St A).
+Proof.
+  intros st1 st2 Rst tr1 tr2 Rtr; constructor; assumption.
+Qed.
+
+(* Construct the set of all traces that extend tr with a trace in (f fin) if tr
+terminates in state fin *)
+Fixpoint trace_bind {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
+         (f: A -> FunGraph St (trace St B)) : DownSet (trace St B) :=
+  match tr with
+  | Trace_NonTerm => downClose Trace_NonTerm
+  | Trace_Term st a => applyDownSet (f a) st
+  | Trace_Step st tr' =>
+    mapDownSet (Trace_Step st) (trace_bind tr' f)
+  end.
+
+
+(***
  *** The Trace Monad = Final Algebra of Sets of Traces
  ***)
 
