@@ -198,6 +198,32 @@ Defined.
  *** Proper Instances for Common Operations
  ***)
 
+(** Any operations that are Proper for oleq are Proper for oeq **)
+
+Instance Proper_oeq_oleq_op1 A B `{OType A} `{OType B} (f: A -> B) :
+  Proper (oleq ==> oleq) f -> Proper (oeq ==> oeq) f.
+Proof.
+  intros prp a1 a2 Ra; destruct Ra; split; apply prp; assumption.
+Qed.
+
+Instance Proper_oeq_oleq_op2 A B C `{OType A} `{OType B} `{OType C}
+         (f: A -> B -> C) :
+  Proper (oleq ==> oleq ==> oleq) f -> Proper (oeq ==> oeq ==> oeq) f.
+Proof.
+  intros prp a1 a2 Ra b1 b2 Rb; destruct Ra; destruct Rb.
+  split; apply prp; assumption.
+Qed.
+
+Instance Proper_oeq_oleq_op3 A B C D `{OType A} `{OType B} `{OType C} `{OType D}
+         (f: A -> B -> C -> D) :
+  Proper (oleq ==> oleq ==> oleq ==> oleq) f ->
+  Proper (oeq ==> oeq ==> oeq ==> oeq) f.
+Proof.
+  intros prp a1 a2 Ra b1 b2 Rb c1 c2 Rc; destruct Ra; destruct Rb; destruct Rc.
+  split; apply prp; assumption.
+Qed.
+
+
 (** Flip **)
 
 Instance Proper_flip A `{OType A} : Proper (Basics.flip oleq ==> oleq) flip.
@@ -205,19 +231,9 @@ Proof.
   intros a1 a2 Ra; assumption.
 Qed.
 
-Instance Proper_flip_equiv A `{OType A} : Proper (oeq ==> oeq) flip.
-Proof.
-  intros a1 a2 Ra; destruct Ra; split; apply Proper_flip; assumption.
-Qed.
-
 Instance Proper_unflip A `{OType A} : Proper (Basics.flip oleq ==> oleq) unflip.
 Proof.
   intros a1 a2 Ra; assumption.
-Qed.
-
-Instance Proper_unflip_equiv A `{OType A} : Proper (oeq ==> oeq) unflip.
-Proof.
-  intros a1 a2 Ra; destruct Ra; split; apply Proper_unflip; assumption.
 Qed.
 
 
@@ -257,23 +273,10 @@ Proof.
   repeat intro; split; assumption.
 Qed.
 
-Instance Proper_pair_equiv A B `{OType A} `{OType B} :
-  Proper (oeq ==> oeq ==> oeq) (pair : A -> B -> A*B).
-Proof.
-  intros a1 a2 Ra b1 b2 Rb; destruct Ra; destruct Rb; split; split; assumption.
-Qed.
-
 Instance Proper_fst A B `{OType A} `{OType B} :
   Proper (oleq ==> oleq) (fst : A*B -> A).
 Proof.
   intros p1 p2 Rp; destruct Rp; assumption.
-Qed.
-
-Instance Proper_fst_equiv A B `{OType A} `{OType B} :
-  Proper (oeq ==> oeq) (fst : A*B -> A).
-Proof.
-  intros p1 p2 Rp. destruct Rp.
-  split; eapply Proper_fst; assumption.
 Qed.
 
 Instance Proper_snd A B `{OType A} `{OType B} :
@@ -282,24 +285,12 @@ Proof.
   intros p1 p2 Rp; destruct Rp; assumption.
 Qed.
 
-Instance Proper_snd_equiv A B `{OType A} `{OType B} :
-  Proper (oeq ==> oeq) (snd : A*B -> B).
-Proof.
-  intros p1 p2 Rp. destruct Rp.
-  split; eapply Proper_snd; assumption.
-Qed.
-
 
 (** Options **)
 
 Instance Proper_Some A `{OType A} : Proper (oleq ==> oleq) Some.
 Proof.
   constructor; assumption.
-Qed.
-
-Instance Proper_Some_equiv A `{OType A} : Proper (oeq ==> oeq) Some.
-Proof.
-  split; constructor; destruct H0; assumption.
 Qed.
 
 (* Eliminator for the option type *)
@@ -353,22 +344,10 @@ Proof.
   constructor; assumption.
 Qed.
 
-Instance Proper_inl_equiv A B `{OType A} `{OType B} :
-  Proper (oeq ==> oeq) (inl : A -> A+B).
-Proof.
-  split; constructor; destruct H1; assumption.
-Qed.
-
 Instance Proper_inr A B `{OType A} `{OType B} :
   Proper (oleq ==> oleq) (inr : B -> A+B).
 Proof.
   constructor; assumption.
-Qed.
-
-Instance Proper_inr_equiv A B `{OType A} `{OType B} :
-  Proper (oeq ==> oeq) (inr : B -> A+B).
-Proof.
-  split; constructor; destruct H1; assumption.
 Qed.
 
 (* Eliminator for the sum type *)
