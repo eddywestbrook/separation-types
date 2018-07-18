@@ -183,7 +183,7 @@ Proof.
     - inversion R23. constructor.
       + etransitivity; eassumption.
       + apply IHR12; assumption. }
-Qed.
+Defined.
 
 
 (* The pointwise relation on functions *)
@@ -411,6 +411,15 @@ Proof.
   intros f1 f2 Rf g1 g2 Rg s1 s2 eq_s; destruct Rf; destruct Rg; split;
     apply (Proper_sumElim_eq A B C); try assumption.
   symmetry; assumption.
+Qed.
+
+
+(** lists **)
+
+Instance Proper_append A `{OType A} : Proper (oleq ==> oleq ==> oleq) (@app A).
+Proof.
+  intros l1 l2 R12; induction R12; intros l3 l4 R34; try assumption.
+  constructor; [ | apply IHR12 ]; assumption.
 Qed.
 
 
