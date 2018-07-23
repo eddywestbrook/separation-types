@@ -46,9 +46,37 @@ Notation "x <o= y" :=
 Notation "x =o= y" :=
   (oeq x y) (no associativity, at level 70).
 
-(* Do not simplify x <o= y or x =o= y *)
-Arguments oleq : simpl never.
-Arguments oeq : simpl never.
+(* FIXME: replace "oleq" below with "<o=" notation *)
+
+
+(***
+ *** Some General Proper Instances
+ ***)
+
+(** Any operations that are Proper for oleq are Proper for oeq **)
+
+Instance Proper_oeq_oleq_op1 A B `{OType A} `{OType B} (f: A -> B) :
+  Proper (oleq ==> oleq) f -> Proper (oeq ==> oeq) f.
+Proof.
+  intros prp a1 a2 Ra; destruct Ra; split; apply prp; assumption.
+Qed.
+
+Instance Proper_oeq_oleq_op2 A B C `{OType A} `{OType B} `{OType C}
+         (f: A -> B -> C) :
+  Proper (oleq ==> oleq ==> oleq) f -> Proper (oeq ==> oeq ==> oeq) f.
+Proof.
+  intros prp a1 a2 Ra b1 b2 Rb; destruct Ra; destruct Rb.
+  split; apply prp; assumption.
+Qed.
+
+Instance Proper_oeq_oleq_op3 A B C D `{OType A} `{OType B} `{OType C} `{OType D}
+         (f: A -> B -> C -> D) :
+  Proper (oleq ==> oleq ==> oleq ==> oleq) f ->
+  Proper (oeq ==> oeq ==> oeq ==> oeq) f.
+Proof.
+  intros prp a1 a2 Ra b1 b2 Rb c1 c2 Rc; destruct Ra; destruct Rb; destruct Rc.
+  split; apply prp; assumption.
+Qed.
 
 (* FIXME: figure out what versions of this we need for rewriting! *)
 Instance Proper_oleq_oleq A `{OType A}
@@ -76,6 +104,12 @@ Instance Proper_oeq A `{OType A} :
   Proper (oeq ==> oeq ==> iff) (@oeq A _).
 Proof.
   intros x1 x2 Rx y1 y2 Ry. rewrite Rx. rewrite Ry. reflexivity.
+Qed.
+
+Instance Proper_oeq_partial A `{OType A} a :
+  Proper (oeq ==> Basics.flip Basics.impl) (@oeq A _ a).
+Proof.
+  intros x1 x2 Rx. rewrite Rx. reflexivity.
 Qed.
 
 
@@ -118,6 +152,21 @@ Proof.
   - destruct x; destruct y; destruct z; compute; transitivity a0; assumption.
 Defined.
 
+(* The ordered type that requires equivalence in the underlying OType *)
+Inductive Equiv A : Type := equiv (a:A).
+Arguments equiv {A} a.
+
+Definition unequiv {A} (f:Equiv A) : A := let (x) := f in x.
+
+Instance OTEquiv A (R:OType A) : OType (Equiv A) :=
+  {| oleq := fun x y => unequiv y =o= unequiv x |}.
+Proof.
+  constructor; intro; intros.
+  - reflexivity.
+  - etransitivity; eassumption.
+Defined.
+
+
 (* The discrete relation on Booleans *)
 Instance OTbool : OType bool := OTdiscrete bool.
 
@@ -135,137 +184,82 @@ Proof.
 Defined.
 
 
-(* The pointwise relation on option types *)
-Inductive optionR A `{OType A} : option A -> option A -> Prop :=
-| optionR_None : optionR A None None
-| optionR_Some a1 a2 : a1 <o= a2 -> optionR A (Some a1) (Some a2)
-.
+(* The sort-of pointwise relation on sum types *)
+Inductive sumR {A B} (RA:OType A) (RB:OType B) : A+B -> A+B -> Prop :=
+| sumR_inl a1 a2 : oleq a1 a2 -> sumR RA RB (inl a1) (inl a2)
+| sumR_inr b1 b2 : oleq b1 b2 -> sumR RA RB (inr b1) (inr b2).
 
-Instance OToption A `{OType A} : OType (option A) :=
-  {| oleq := optionR A |}.
-Proof.
-  constructor.
-  { intros [ a | ]; constructor; reflexivity. }
-  { intros o1 o2 o3 R12; destruct R12; intros R23; inversion R23;
-      constructor; try assumption.
-    etransitivity; eassumption. }
-Defined.
-
-
-(* The pointwise relation on sum types *)
-Inductive sumR A B `{OType A} `{OType B} : A+B -> A+B -> Prop :=
-| sumR_inl a1 a2 : oleq a1 a2 -> sumR A B (inl a1) (inl a2)
-| sumR_inr b1 b2 : oleq b1 b2 -> sumR A B (inr b1) (inr b2).
-
-Instance OTsum A B `{OType A} `{OType B} : OType (A+B) :=
-  {| oleq := sumR A B |}.
+Instance OTsum A B (RA:OType A) (RB:OType B) : OType (A+B) :=
+  {| oleq := sumR RA RB |}.
 Proof.
   repeat constructor; intro; intros.
   { destruct x; constructor; reflexivity. }
-  { destruct H1; inversion H2.
+  { destruct H; inversion H0.
     - constructor; transitivity a2; assumption.
     - constructor; transitivity b2; assumption. }
 Defined.
 
 
-(* The pointwise relation on lists of equal lengths *)
-Inductive listR A `{OType A} : list A -> list A -> Prop :=
-| listR_nil : listR A [] []
-| listR_cons a1 a2 l1 l2 : a1 <o= a2 -> listR A l1 l2 ->
-                           listR A (a1 :: l1) (a2 :: l2).
+(* NOTE: the following definition requires everything above to be polymorphic *)
+(* NOTE: The definition we choose for OTType is actually deep: instead of
+requiring ot_Type A = ot_Type B, we could just require a coercion function from
+ot_Type A to ot_Type B, which would yield something more like HoTT... though
+maybe it wouldn't work unless we assumed the HoTT axiom? As it is, we might need
+UIP to hold if we want to use the definition given here... *)
+(*
+Program Definition OTType : OType :=
+  {|
+    ot_Type := OType;
+    oleq := (fun A B =>
+               exists (e:ot_Type A = ot_Type B),
+                 forall (x y:A),
+                   oleq A x y ->
+                   oleq B (rew [fun A => A] e in x)
+                        (rew [fun A => A] e in y));
+  |}.
+*)
 
-Instance OTlist A `{OType A} : OType (list A) := {| oleq := listR A |}.
+
+(***
+ *** The Ordered Type for Functions
+ ***)
+
+(* The type of continuous, i.e. Proper, functions between ordered types *)
+Record OFun A B {RA:OType A} {RB:OType B} :=
+  {
+    ofun_app : A -> B;
+    ofun_Proper : Proper (oleq ==> oleq) ofun_app
+  }.
+
+(* New idea: never unfold applications of proper functions directly during
+simplification, because the Proper proofs can get big from substitution;
+instead, we will only use rewriting to simplify proper functions *)
+Arguments ofun_app {_ _ _ _} !o _.
+Arguments ofun_Proper [_ _ _ _] _ _ _ _.
+
+Notation "A '-o>' B" :=
+  (OFun A B) (right associativity, at level 99).
+
+Notation "x @@ y" :=
+  (ofun_app x y) (left associativity, at level 20).
+
+(* The non-dependent function ordered type *)
+Instance OTarrow A B `{OType A} `{OType B} : OType (A -o> B) :=
+  {| oleq :=
+       fun f g =>
+         forall a1 a2, oleq a1 a2 -> oleq (ofun_app f a1) (ofun_app g a2) |}.
 Proof.
-  constructor.
-  { intro l; induction l; constructor; try reflexivity; assumption. }
-  { intros l1 l2 l3 R12; revert l3; induction R12; intros l3 R23.
-    - assumption.
-    - inversion R23. constructor.
-      + etransitivity; eassumption.
-      + apply IHR12; assumption. }
-Defined.
-
-
-(* The pointwise relation on functions *)
-Instance OTarrow A B `{OType B} : OType (A -> B) :=
-  {| oleq := pointwise_relation A oleq |}.
-Proof.
-  constructor; typeclasses eauto.
+  repeat constructor; intro; intros.
+  { apply ofun_Proper; assumption. }
+  { transitivity (ofun_app y a1).
+    - apply H1; reflexivity.
+    - apply H2; assumption. }
 Defined.
 
 
 (***
- *** Proper Instances for Common Operations
+ *** Proper Instances for Simple Ordered Types
  ***)
-
-(** Any operations that are Proper for oleq are Proper for oeq **)
-
-Instance Proper_oeq_oleq_op1 A B `{OType A} `{OType B} (f: A -> B) :
-  Proper (oleq ==> oleq) f -> Proper (oeq ==> oeq) f.
-Proof.
-  intros prp a1 a2 Ra; destruct Ra; split; apply prp; assumption.
-Qed.
-
-Instance Proper_oeq_oleq_op2 A B C `{OType A} `{OType B} `{OType C}
-         (f: A -> B -> C) :
-  Proper (oleq ==> oleq ==> oleq) f -> Proper (oeq ==> oeq ==> oeq) f.
-Proof.
-  intros prp a1 a2 Ra b1 b2 Rb; destruct Ra; destruct Rb.
-  split; apply prp; assumption.
-Qed.
-
-Instance Proper_oeq_oleq_op3 A B C D `{OType A} `{OType B} `{OType C} `{OType D}
-         (f: A -> B -> C -> D) :
-  Proper (oleq ==> oleq ==> oleq ==> oleq) f ->
-  Proper (oeq ==> oeq ==> oeq ==> oeq) f.
-Proof.
-  intros prp a1 a2 Ra b1 b2 Rb c1 c2 Rc; destruct Ra; destruct Rb; destruct Rc.
-  split; apply prp; assumption.
-Qed.
-
-
-(** Flip **)
-
-Instance Proper_flip A `{OType A} : Proper (Basics.flip oleq ==> oleq) flip.
-Proof.
-  intros a1 a2 Ra; assumption.
-Qed.
-
-Instance Proper_unflip A `{OType A} : Proper (Basics.flip oleq ==> oleq) unflip.
-Proof.
-  intros a1 a2 Ra; assumption.
-Qed.
-
-
-(** Functions **)
-
-(* Extensionality for functions w.r.t. oeq (the one for oleq is definitionally
-true already) *)
-Lemma funOExt A B `{OType B} (f g : A -> B) :
-  f =o= g <-> (forall x, f x =o= g x).
-Proof.
-  split.
-  { intros [ Rfg Rgf ] x. split; [ apply Rfg | apply Rgf ]. }
-  { intro all_fg; split; intro x;
-      destruct (all_fg x) as [ Rfg Rgf ]; assumption. }
-Qed.
-
-(* This is needed to rewrite f to g in context (f x <o= g x) *)
-Instance subrelation_OTarrow_pointwise A B `{OType B} :
-  subrelation oleq (pointwise_relation A oleq).
-Proof.
-  intros f g Rfg. assumption.
-Qed.
-
-(* This is needed to rewrite f to g in context (f x =o= g x) *)
-Instance subrelation_OTarrow_equiv_pointwise A B `{OType B} :
-  subrelation oeq (pointwise_relation A oeq).
-Proof.
-  intros f g Rfg a. destruct Rfg. split; [ apply H0 | apply H1 ].
-Qed.
-
-
-(** Pairs **)
 
 Instance Proper_pair A B `{OType A} `{OType B} :
   Proper (oleq ==> oleq ==> oleq) (pair : A -> B -> A*B).
@@ -285,128 +279,78 @@ Proof.
   intros p1 p2 Rp; destruct Rp; assumption.
 Qed.
 
-
-(** Options **)
-
-Instance Proper_Some A `{OType A} : Proper (oleq ==> oleq) Some.
+(* ofun_app is always Proper *)
+Instance Proper_ofun_app A B `{OType A} `{OType B} :
+  Proper (oleq ==> oleq ==> oleq) (@ofun_app A B _ _).
 Proof.
-  constructor; assumption.
+  intros f1 f2 Rf a1 a2 Ra. apply Rf; assumption.
 Qed.
 
-(* Eliminator for the option type *)
-Definition optElim {A B} (f : A -> B) (g : B) (o : option A) : B :=
-  match o with
-  | Some a => f a
-  | None => g
-  end.
-
-(* NOTE: this is strictly less powerful than what would seem to be the natural
-   signature (oleq ==> oleq ==> oleq ==> oleq), but is needed because the
-   functions f might not be Proper. *)
-Instance Proper_optElim A B `{OType A} `{OType B} :
-  Proper ((oleq ==> oleq) ==> oleq ==> oleq ==> oleq) (@optElim A B).
+(*
+Instance Proper_ofun_app_partial A B `{OType A} `{OType B} f :
+  Proper (oleq ==> oleq) (ofun_app (A:=A) (B:=B) f).
 Proof.
-  intros f1 f2 Rf g1 g2 Rg o1 o2 Ro. destruct Ro; simpl; try assumption.
-  apply Rf; assumption.
+  apply ofun_Proper.
+Qed.
+*)
+
+
+(***
+ *** Building Proper Functions
+ ***)
+
+Class ProperPair A `{OType A} (x y:A) : Prop :=
+  proper_pair_pf : oleq x y.
+
+Class OFunProper {A B} `{OType A} `{OType B} (f: A -> B) : Prop :=
+  ofun_proper : forall x y, ProperPair A x y -> ProperPair B (f x) (f y).
+
+Hint Extern 1 (OFunProper _) => intro; intro; intro : typeclass_instances.
+
+Definition mk_ofun {A B} `{OType A} `{OType B} (f: A -> B) {prp:OFunProper f}
+  : A -o> B :=
+  {| ofun_app := f; ofun_Proper := prp |}.
+
+(*
+Notation "'ofun' x => e" := (mk_ofun (fun x => e))
+                              (right associativity, at level 99).
+
+Notation "'ofun' ( x : A ) => e" :=
+  (mk_ofun (fun x:A => e))
+    (right associativity, at level 99, x at level 0).
+*)
+
+Instance ProperPair_refl A `{OType A} (x:A) : ProperPair A x x.
+Proof.
+  unfold ProperPair. reflexivity.
 Qed.
 
-Instance Proper_optElim_equiv A B `{OType A} `{OType B} :
-  Proper ((oeq ==> oeq) ==> oeq ==> eq ==> oeq) (@optElim A B).
+Lemma ProperPair_ofun_app A B `{OType A} `{OType B}
+      (fl fr:A -o> B) argl argr
+      (prpf:ProperPair (A -o> B) fl fr)
+      (prpa:ProperPair A argl argr)
+ : ProperPair B (ofun_app fl argl) (ofun_app fr argr).
 Proof.
-  intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o.
-  destruct o2; simpl; try assumption.
-  apply Rf. reflexivity.
+  apply prpf; assumption.
 Qed.
 
-(* If we do not change o then we do not need f to be Proper *)
-Instance Proper_optElim_eq A B `{OType A} `{OType B} :
-  Proper (oleq ==> oleq ==> eq ==> oleq) (@optElim A B).
+Lemma ProperPair_ofun A B `{OType A} `{OType B} (f g:A -> B) prpl prpr
+         (pf: forall x y, ProperPair A x y -> ProperPair B (f x) (g y)) :
+  ProperPair (A -o> B) (@mk_ofun A B _ _ f prpl) (@mk_ofun A B _ _ g prpr).
 Proof.
-  intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o. destruct o2; simpl.
-  - apply Rf.
-  - apply Rg.
+  intros xl xr Rx; apply pf; assumption.
 Qed.
 
-Instance Proper_optElim_eq_equiv A B `{OType A} `{OType B} :
-  Proper ((oeq ==> oeq) ==> oeq ==> eq ==> oeq) (@optElim A B).
-Proof.
-  intros f1 f2 Rf g1 g2 Rg o1 o2 eq_o. rewrite eq_o.
-  destruct o2; simpl; try assumption.
-  apply Rf. reflexivity.
-Qed.
-
-
-(** Sum types **)
-
-Instance Proper_inl A B `{OType A} `{OType B} :
-  Proper (oleq ==> oleq) (inl : A -> A+B).
-Proof.
-  constructor; assumption.
-Qed.
-
-Instance Proper_inr A B `{OType A} `{OType B} :
-  Proper (oleq ==> oleq) (inr : B -> A+B).
-Proof.
-  constructor; assumption.
-Qed.
-
-(* Eliminator for the sum type *)
-Definition sumElim {A B C} (f : A -> C) (g : B -> C) (s : A+B) : C :=
-  match s with
-  | inl a => f a
-  | inr b => g b
-  end.
-
-(* As with optElim, the more complex signature here is needed because the
-eliminator functions f and g might not be Proper *)
-Instance Proper_sumElim A B C `{OType A} `{OType B} `{OType C} :
-  Proper ((oleq ==> oleq) ==> (oleq ==> oleq) ==> oleq ==> oleq) (@sumElim A B C).
-Proof.
-  intros f1 f2 Rf g1 g2 Rg s1 s2 Rs.
-  destruct Rs; [ apply Rf | apply Rg ]; assumption.
-Qed.
-
-Instance Proper_sumElim1_equiv A B C `{OType A} `{OType B} `{OType C} :
-  Proper ((oeq ==> oeq) ==> (oeq ==> oeq) ==> oeq ==> oeq) (@sumElim A B C).
-Proof.
-  intros f1 f2 Rf g1 g2 Rg s1 s2 [ R12 R21 ].
-  destruct R12; inversion R21; simpl; [ apply Rf | apply Rg ]; split; assumption.
-Qed.
-
-
-(* Similarly to optElim, if we do not change the value being eliminated then we
-do not need the elimination functions to be Proper *)
-Instance Proper_sumElim_eq A B C `{OType A} `{OType B} `{OType C} :
-  Proper (oleq ==> oleq ==> eq ==> oleq) (@sumElim A B C).
-Proof.
-  intros f1 f2 Rf g1 g2 Rg s1 s2 eq_s. rewrite eq_s. destruct s2; simpl.
-  - apply Rf.
-  - apply Rg.
-Qed.
-
-Instance Proper_sumElim1_eq_equiv A B C `{OType A} `{OType B} `{OType C} :
-  Proper (oeq ==> oeq ==> eq ==> oeq) (@sumElim A B C).
-Proof.
-  intros f1 f2 Rf g1 g2 Rg s1 s2 eq_s; destruct Rf; destruct Rg; split;
-    apply (Proper_sumElim_eq A B C); try assumption.
-  symmetry; assumption.
-Qed.
-
-
-(** lists **)
-
-Instance Proper_append A `{OType A} : Proper (oleq ==> oleq ==> oleq) (@app A).
-Proof.
-  intros l1 l2 R12; induction R12; intros l3 l4 R34; try assumption.
-  constructor; [ | apply IHR12 ]; assumption.
-Qed.
+Hint Extern 2 (ProperPair _ _ _) =>
+first [ apply ProperPair_ofun_app
+      | apply ProperPair_ofun; do 3 intro ] : typeclass_instances.
 
 
 (***
  *** Unary Ordered Type Functors
  ***)
 
-(* Typeclass specifying that F is an ordered type functor *)
+(* Typeclass version of OTypeF1Fun *)
 Class OTypeF (F:forall A {RA:OType A}, Type) : Type :=
   otypeF : forall A {RA:OType A}, OType (F A).
 
@@ -414,5 +358,4 @@ Class OTypeF (F:forall A {RA:OType A}, Type) : Type :=
 Instance OType_OTypeF F (RF:OTypeF F) A (RA:OType A) :
   OType (F A _) | 5 := RF A _.
 
-(* Unfold uses of OType_OTypeF *)
 Typeclasses Transparent OType_OTypeF.

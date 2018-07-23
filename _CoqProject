@@ -1,7 +1,9 @@
 -Q theories SepTypes
 
 ./theories/OrderedType.v
-./theories/Lens.v
-./theories/DownSet.v
+./theories/OFuns.v
+./theories/OExpr.v
 ./theories/Monad.v
+./theories/MonadFix.v
 ./theories/TraceMonad.v
+./theories/Lens.v

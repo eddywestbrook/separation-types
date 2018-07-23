@@ -1,8 +1,6 @@
 Require Export SepTypes.OrderedType.
-Require Export SepTypes.DownSet.
 Require Export SepTypes.Monad.
-
-Import ListNotations.
+Require Export SepTypes.MonadFix.
 
 
 (***
@@ -50,22 +48,91 @@ Proof.
   intros st1 st2 Rst a1 a2 Ra; constructor; assumption.
 Qed.
 
+Program Definition traceTerm_ofun {St A} `{OType St} `{OType A} :
+  St -o> A -o> trace St A :=
+  {| ofun_app := fun st => {| ofun_app := Trace_Term st |} |}.
+Next Obligation. apply Proper_Trace_Term; reflexivity. Defined.
+Next Obligation. apply Proper_Trace_Term; reflexivity. Defined.
+
+Definition otraceTerm {ctx St A} `{OType St} `{OType A} :
+  OExpr ctx (St -o> A -o> trace St A) := const_ofun traceTerm_ofun.
+
+
 Instance Proper_Trace_Step St A `{OType St} `{OType A} :
   Proper (oleq ==> oleq ==> oleq) (@Trace_Step St A).
 Proof.
   intros st1 st2 Rst tr1 tr2 Rtr; constructor; assumption.
 Qed.
 
+Program Definition traceStep_ofun {St A} `{OType St} `{OType A} :
+  St -o> trace St A -o> trace St A :=
+  {| ofun_app := fun st => {| ofun_app := Trace_Step st |} |}.
+Next Obligation. apply Proper_Trace_Step; reflexivity. Defined.
+Next Obligation. apply Proper_Trace_Step; reflexivity. Defined.
+
+Definition otraceStep {ctx St A} `{OType St} `{OType A} :
+  OExpr ctx (St -o> trace St A -o> trace St A) := const_ofun traceStep_ofun.
+
+
+(* Construct the trace that extends tr with (f fin) if tr terminates in state
+fin *)
+Fixpoint trace_bind {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
+         (f: A -o> St -o> trace St B) : trace St B :=
+  match tr with
+  | Trace_NonTerm => Trace_NonTerm
+  | Trace_Term st a => ofun_app (ofun_app f a) st
+  | Trace_Step st tr' => Trace_Step st (trace_bind tr' f)
+  end.
+
+Instance Proper_trace_bind {St A B} `{OType St} `{OType A} `{OType B} :
+  Proper (oleq ==> oleq ==> oleq) (@trace_bind St A B _ _ _).
+Proof.
+  intros tr1 tr2 Rtr; induction Rtr; intros f1 f2 Rf; simpl.
+  - constructor; assumption.
+  - apply Rf; assumption.
+  - constructor; [ | apply IHRtr ]; assumption.
+Qed.
+
+Program Definition traceBind_ofun {St A B} `{OType St} `{OType A} `{OType B} :
+  trace St A -o> (A -o> St -o> trace St B) -o> trace St B :=
+  {| ofun_app := fun tr => {| ofun_app := trace_bind tr |} |}.
+Next Obligation. apply Proper_trace_bind; reflexivity. Defined.
+Next Obligation. apply Proper_trace_bind; reflexivity. Defined.
+
+Definition otraceBind {ctx St A B} `{OType St} `{OType A} `{OType B} :
+  OExpr ctx (trace St A -o> (A -o> St -o> trace St B) -o> trace St B) :=
+  const_ofun traceBind_ofun.
+
+
 (* Construct the set of all traces that extend tr with a trace in (f fin) if tr
 terminates in state fin *)
-Fixpoint trace_bind {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
-         (f: A -> FunGraph St (trace St B)) : DownSet (trace St B) :=
+Fixpoint trace_bindM {St A B} `{OType St} `{OType A} `{OType B}
+         (tr: trace St A) (f: A -o> St -o> FixM (trace St B)) : FixM (trace St B) :=
   match tr with
-  | Trace_NonTerm => downClose Trace_NonTerm
-  | Trace_Term st a => applyDownSet (f a) st
+  | Trace_NonTerm => 
+  | Trace_Term st a => ofun_app (ofun_app f a) st
   | Trace_Step st tr' =>
-    mapDownSet (Trace_Step st) (trace_bind tr' f)
+    ofun_app (ofun_app bindM (trace_bindM tr' f))
+             (compose_ofun (ofun_app traceStep_ofun st) returnM)
   end.
+
+Instance Proper_trace_bindM {St A B} `{OType St} `{OType A} `{OType B} :
+  Proper (oleq ==> oleq ==> oleq) (@trace_bindM St A B _ _ _).
+Proof.
+  intros tr1 tr2 Rtr; induction Rtr; intros f1 f2 Rf.
+  { induction tr; simpl; intros; intro.
+    - inversion H3. rewrite <- H5 in H2. inversion H2. constructor.
+    - 
+    
+ intro; intros. simpl. intro.
+inversion H3. rewrite <- H5 in H2. inversion H2. destruct a2.
+    simpl in H7; rewrite <- H7.
+apply traceR_NonTerm.
+ simpl; intros; intro.
+  { 
+*)
+
+(* FIXME: laws for otraceBind, otraceTerm, and otraceStep *)
 
 
 (***
@@ -74,14 +141,26 @@ Fixpoint trace_bind {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
 
 (* A trace computation starts from any given input state, and generates a trace
 of intermediate states followed by an optional final state (if it terminates) *)
-Definition TraceM St `{OType St} A `{OType A} :=
-  FunGraph St (list St * option (A * St)).
+Definition TraceM St `{OType St} A `{OType A} := St -o> FixM (trace St A).
 
 Instance OTypeF_TraceM St `{OType St} : OTypeF (TraceM St) := fun _ _ => _.
 
 Instance MonadOps_TraceM St `{OType St} : MonadOps (TraceM St) :=
   {| returnM :=
-       fun _ _ x =>
+       fun _ _ =>
+         oexpr (ofun x => ofun st =>
+                oreturn @o@ (otraceTerm @o@ ovar st @o@ ovar x));
+     bindM :=
+       fun _ _ _ _ =>
+         oexpr (ofun m => ofun f => ofun st =>
+                obind @o@ (ovar m @o@ ovar st) @o@
+                      (ofun tr => ofun b =>
+                       otraceBind 
+)
+)
+ |}.
+
+
          (* For each input st, return x as the output and st as the final state,
          with no intermediate states *)
          lambdaDownSet (fun st => downClose ([], Some (x, st)));
