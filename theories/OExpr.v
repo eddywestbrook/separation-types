@@ -298,8 +298,15 @@ Notation "x @o@ y" :=
  *** Notation for Variables, Lambdas, and Top-level Expressions
  ***)
 
+(* Build an A from an OExpr in unit context of type A *)
 Definition oexpr {A} `{OType A} (e: OExpr CNil A) : A := ofun_app e tt.
 
+(* Build an OExpr from a constant *)
+Definition oconst {ctx A} `{OType A} (a:A) : OExpr ctx A :=
+  const_ofun a.
+
+(* Weaken a variable after coercing it to an expression *)
+(* FIXME: should this specifically be for variables, not exprs? *)
 Definition ovar {ctx A} `{OType A} {ctx'} `{w:WeakensTo ctx ctx'}
            (e:OExpr ctx A) : OExpr ctx' A := weakenExpr e.
 
