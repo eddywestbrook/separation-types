@@ -380,6 +380,25 @@ Proof.
 Qed.
 
 
+Lemma flipLeftAdj {A} `{OType A} (x: A) (y: Flip A) :
+  flip x <o= y <-> unflip y <o= x.
+Proof.
+  destruct y; simpl; reflexivity.
+Qed.
+
+Lemma flipRightAdj {A} `{OType A} (x: Flip A) (y: A) :
+  x <o= flip y <-> y <o= unflip x.
+Proof.
+  destruct x; simpl; reflexivity.
+Qed.
+
+Lemma flipAdjEq {A} `{OType A} (x: A) (y: Flip A) :
+  flip x =o= y <-> x =o= unflip y.
+Proof.
+  destruct y; simpl. split; intro e; destruct e; split; assumption.
+Qed.
+
+
 Instance Proper_unequiv {A} `{OType A} : Proper (oleq ==> oleq) unequiv.
 Proof.
   intros a1 a2 [ Ra1 Ra2 ]. assumption.
