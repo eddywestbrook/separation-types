@@ -23,6 +23,8 @@ Class OType (A:Type) : Type :=
     oPreOrder :> PreOrder oleq
   }.
 
+Arguments oleq {_ _} : simpl never.
+
 Instance OType_Reflexive A `{OType A} : Reflexive oleq.
 Proof. typeclasses eauto. Qed.
 
