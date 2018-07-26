@@ -435,7 +435,7 @@ Next Obligation.
 Defined.
 Next Obligation.
   intro; intros. simpl.
-  destruct x; destruct y; try discriminate; assumption.
+  destruct x; destruct y; try discriminate; reflexivity.
 Defined.
 
 
@@ -487,9 +487,9 @@ Next Obligation.
   exists z; try assumption. apply (H0 _ _ (reflexivity _)). assumption.
 Defined.
 Next Obligation.
-  intro; intros. intros [z pf1 pf2].
+  intro; intros. intros s1 s2 Rs. intros [z pf1 pf2]. simpl.
   exists z; [ apply (H0 _ _ (reflexivity _)) |
-              apply (H1 _ _ (reflexivity _)) ]; assumption.
+              apply (Rs _ _ (reflexivity _)) ]; assumption.
 Defined.
 
 
@@ -541,5 +541,5 @@ Defined.
 Next Obligation.
   intros a1 a2 R12 a3 a4 R34; simpl; intro pf.
   etransitivity; try eassumption.
-  etransitivity; try eassumption.
+  rewrite <- R12. assumption.
 Defined.
