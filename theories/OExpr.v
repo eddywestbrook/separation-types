@@ -648,6 +648,42 @@ Definition oappr {ctx A} `{OType A} : OExpr ctx (Flip A -o> A -o> Prop) :=
   const_ofun oleq_ofun.
 
 
+Lemma oor_leq1 {ctx} (P Q: OExpr ctx Prop) : P <o= oor @o@ P @o@ Q.
+Proof.
+  intros c1 c2 Rc; rewrite Rc. intro pf; left; assumption.
+Qed.
+
+Lemma oor_leq2 {ctx} (P Q: OExpr ctx Prop) : Q <o= oor @o@ P @o@ Q.
+Proof.
+  intros c1 c2 Rc; rewrite Rc. intro pf; right; assumption.
+Qed.
+
+Lemma oor_lub {ctx} (P Q R: OExpr ctx Prop) :
+  (P <o= R) -> (Q <o= R) -> oor @o@ P @o@ Q <o= R.
+Proof.
+  intros RPR RQR c1 c2 Rc; rewrite Rc. intro pf.
+  destruct pf; [ apply (RPR c2) | apply (RQR c2) ]; try assumption; reflexivity.
+Qed.
+
+
+Lemma oand_leq1 {ctx} (P Q: OExpr ctx Prop) : oand @o@ P @o@ Q <o= P.
+Proof.
+  intros c1 c2 Rc; rewrite Rc. intro pf; destruct pf; assumption.
+Qed.
+
+Lemma oand_leq2 {ctx} (P Q: OExpr ctx Prop) : oand @o@ P @o@ Q <o= Q.
+Proof.
+  intros c1 c2 Rc; rewrite Rc. intro pf; destruct pf; assumption.
+Qed.
+
+Lemma oand_glb {ctx} (P Q R: OExpr ctx Prop) :
+  (P <o= Q) -> (P <o= R) -> P <o= oand @o@ Q @o@ R.
+Proof.
+  intros RPQ RPR c1 c2 Rc; rewrite Rc. intro pf.
+  split; [ apply (RPQ c2) | apply (RPR c2) ]; try assumption; reflexivity.
+Qed.
+
+
 (***
  *** Flip and Equiv Types
  ***)
