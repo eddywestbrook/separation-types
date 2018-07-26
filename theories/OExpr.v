@@ -507,11 +507,11 @@ Proof.
 Qed.
 
 Lemma ofunExt_leq {ctx A B} `{OType A} `{OType B} (e1 e2 : OExpr ctx (A -o> B))
-      (pf: forall arg, e1 @o@ arg =o= e2 @o@ arg) :
+      (pf: forall arg, e1 @o@ arg <o= e2 @o@ arg) :
   e1 <o= e2.
 Proof.
   intros c1 c2 Rc a1 a2 Ra. rewrite Rc; rewrite Ra.
-  destruct (pf (oconst a2)). apply H1. reflexivity.
+  apply (pf (oconst a2)). reflexivity.
 Qed.
 
 Lemma ofunEta' {ctx A B} `{OType A} `{OType B} (e: OExpr ctx (A -o> B)) :
