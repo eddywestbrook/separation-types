@@ -66,6 +66,28 @@ Definition oempty {ctx A} `{OType A} : OExpr ctx (DownSet A) :=
   ofun a => oFalse.
 
 
+Lemma ounion_leq1 {ctx A} `{OType A} (s1 s2: OExpr ctx (DownSet A)) :
+  s1 <o= ounion @o@ s1 @o@ s2.
+Proof.
+  unfold ounion. obeta. obeta. apply ofunExt_leq; intro. obeta.
+  apply oor_leq1.
+Qed.
+
+Lemma ounion_leq2 {ctx A} `{OType A} (s1 s2: OExpr ctx (DownSet A)) :
+  s2 <o= ounion @o@ s1 @o@ s2.
+Proof.
+  unfold ounion. obeta. obeta. apply ofunExt_leq; intro. obeta.
+  apply oor_leq2.
+Qed.
+
+Lemma ounion_lub {ctx A} `{OType A} (s1 s2 s3: OExpr ctx (DownSet A)) :
+  s1 <o= s3 -> s2 <o= s3 -> ounion @o@ s1 @o@ s2 <o= s3.
+Proof.
+  intros R13 R23. unfold ounion. obeta. obeta. apply ofunExt_leq; intro. obeta.
+  apply oor_lub; [ rewrite R13 | rewrite R23 ]; reflexivity.
+Qed.
+
+
 (***
  *** The Fixed-Point Operations
  ***)
