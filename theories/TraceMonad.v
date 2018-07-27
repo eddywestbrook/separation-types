@@ -1,5 +1,6 @@
 Require Export SepTypes.OrderedType.
 Require Export SepTypes.Monad.
+Require Export SepTypes.DownSet.
 Require Export SepTypes.MonadFix.
 
 
@@ -8,45 +9,69 @@ Require Export SepTypes.MonadFix.
  ***)
 
 (* An execution trace = a list of intermediate states, followed by a final state
-if the execution terminated *)
+if the execution terminated. Note that these are non-empty traces, so that, when
+we build sets of traces, non-termination can be represented by the empty set *)
 Inductive trace St A : Type :=
-| Trace_NonTerm : trace St A
+| Trace_NonTerm (st:St) : trace St A
 | Trace_Term (st:St) (a:A) : trace St A
 | Trace_Step (st:St) (tr:trace St A) : trace St A.
 
-Arguments Trace_NonTerm {St A}.
+Arguments Trace_NonTerm {St A} st.
 Arguments Trace_Term {St A} st a.
 Arguments Trace_Step {St A} st tr.
 
 (* Non-terminating traces approximate longer traces that are pointwise bigger *)
 Inductive traceR St A `{OType St} `{OType A} : trace St A -> trace St A -> Prop :=
-| traceR_NonTerm (tr:trace St A) : traceR St A Trace_NonTerm tr
+| traceR_NonTerm st1 st2 :
+    st1 <o= st2 -> traceR St A (Trace_NonTerm st1) (Trace_NonTerm st2)
 | traceR_Term st1 st2 a1 a2 :
     st1 <o= st2 -> a1 <o= a2 ->
     traceR St A (Trace_Term st1 a1) (Trace_Term st2 a2)
 | traceR_Step st1 st2 tr1 tr2 :
     st1 <o= st2 -> traceR St A tr1 tr2 ->
     traceR St A (Trace_Step st1 tr1) (Trace_Step st2 tr2)
+| traceR_NonTerm_step (tr:trace St A) st1 st2 :
+    st1 <o= st2 -> traceR St A (Trace_NonTerm st1) (Trace_Step st2 tr)
 .
 
 Instance OTtrace St A `{OType St} `{OType A} : OType (trace St A) :=
   {| oleq := traceR St A |}.
 Proof.
   constructor.
-  { intro tr. induction tr; constructor; try reflexivity. assumption. }
-  { intros tr1 tr2 tr3 R12; revert tr3; induction R12; intros tr3 R23.
-    - constructor.
-    - inversion R23.
-      constructor; try assumption; etransitivity; eassumption.
-    - inversion R23. constructor; [ etransitivity; eassumption | ].
-      apply IHR12; assumption. }
+  { intro tr; induction tr; try constructor; try reflexivity. assumption. }
+  { intros tr1 tr2 tr3 R12; revert tr3; induction R12;
+      intros tr3 R23; inversion R23;
+        constructor; try (etransitivity; eassumption).
+    apply IHR12. assumption. }
 Defined.
+
+
+Instance Proper_Trace_NonTerm St A `{OType St} `{OType A} :
+  Proper (oleq ==> oleq) (@Trace_NonTerm St A).
+Proof.
+  intros st1 st2 Rst; constructor; assumption.
+Qed.
 
 Instance Proper_Trace_Term St A `{OType St} `{OType A} :
   Proper (oleq ==> oleq ==> oleq) (@Trace_Term St A).
 Proof.
   intros st1 st2 Rst a1 a2 Ra; constructor; assumption.
 Qed.
+
+Instance Proper_Trace_Step St A `{OType St} `{OType A} :
+  Proper (oleq ==> oleq ==> oleq) (@Trace_Step St A).
+Proof.
+  intros st1 st2 Rst tr1 tr2 Rtr; constructor; assumption.
+Qed.
+
+
+Definition traceNonTerm_ofun {St A} `{OType St} `{OType A}
+  : St -o> trace St A :=
+  {| ofun_app := Trace_NonTerm |}.
+
+Definition otraceNonTerm {ctx St A} `{OType St} `{OType A} :
+  OExpr ctx (St -o> trace St A) := const_ofun traceNonTerm_ofun.
+
 
 Program Definition traceTerm_ofun {St A} `{OType St} `{OType A} :
   St -o> A -o> trace St A :=
@@ -57,12 +82,6 @@ Next Obligation. apply Proper_Trace_Term; reflexivity. Defined.
 Definition otraceTerm {ctx St A} `{OType St} `{OType A} :
   OExpr ctx (St -o> A -o> trace St A) := const_ofun traceTerm_ofun.
 
-
-Instance Proper_Trace_Step St A `{OType St} `{OType A} :
-  Proper (oleq ==> oleq ==> oleq) (@Trace_Step St A).
-Proof.
-  intros st1 st2 Rst tr1 tr2 Rtr; constructor; assumption.
-Qed.
 
 Program Definition traceStep_ofun {St A} `{OType St} `{OType A} :
   St -o> trace St A -o> trace St A :=
@@ -79,7 +98,7 @@ fin *)
 Fixpoint trace_bind {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
          (f: A -o> St -o> trace St B) : trace St B :=
   match tr with
-  | Trace_NonTerm => Trace_NonTerm
+  | Trace_NonTerm st => Trace_NonTerm st
   | Trace_Term st a => ofun_app (ofun_app f a) st
   | Trace_Step st tr' => Trace_Step st (trace_bind tr' f)
   end.
@@ -91,6 +110,7 @@ Proof.
   - constructor; assumption.
   - apply Rf; assumption.
   - constructor; [ | apply IHRtr ]; assumption.
+  - constructor; assumption.
 Qed.
 
 Program Definition traceBind_ofun {St A B} `{OType St} `{OType A} `{OType B} :
@@ -103,34 +123,46 @@ Definition otraceBind {ctx St A B} `{OType St} `{OType A} `{OType B} :
   OExpr ctx (trace St A -o> (A -o> St -o> trace St B) -o> trace St B) :=
   const_ofun traceBind_ofun.
 
-
 (* Construct the set of all traces that extend tr with a trace in (f fin) if tr
 terminates in state fin *)
-Fixpoint trace_bindM {St A B} `{OType St} `{OType A} `{OType B}
-         (tr: trace St A) (f: A -o> St -o> FixM (trace St B)) : FixM (trace St B) :=
+Fixpoint trace_bindM {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
+  : (A -o> St -o> DownSet (trace St B)) -o> DownSet (trace St B) :=
   match tr with
-  | Trace_NonTerm => 
-  | Trace_Term st a => ofun_app (ofun_app f a) st
+  | Trace_NonTerm st =>
+    oexpr (ofun f => oreturn @o@ (otraceNonTerm @o@ oconst st))
+  | Trace_Term st a =>
+    oexpr (ofun f => f @o@ oconst a @o@ oconst st)
   | Trace_Step st tr' =>
-    ofun_app (ofun_app bindM (trace_bindM tr' f))
-             (compose_ofun (ofun_app traceStep_ofun st) returnM)
+    oexpr
+      (ofun f =>
+       ounion @o@ (oreturn @o@ (otraceNonTerm @o@ oconst st))
+              @o@ (obind @o@ (const_ofun (trace_bindM tr') @o@ f)
+                         @o@ (ofun tr'' =>
+                              oreturn @o@ (otraceStep @o@ oconst st @o@ tr''))))
   end.
 
+Arguments trace_bindM {_ _ _ _ _ _} tr : simpl nomatch.
+
 Instance Proper_trace_bindM {St A B} `{OType St} `{OType A} `{OType B} :
-  Proper (oleq ==> oleq ==> oleq) (@trace_bindM St A B _ _ _).
+  Proper (oleq ==> oleq) (@trace_bindM St A B _ _ _).
 Proof.
-  intros tr1 tr2 Rtr; induction Rtr; intros f1 f2 Rf.
-  { induction tr; simpl; intros; intro.
-    - inversion H3. rewrite <- H5 in H2. inversion H2. constructor.
-    - 
-    
- intro; intros. simpl. intro.
-inversion H3. rewrite <- H5 in H2. inversion H2. destruct a2.
-    simpl in H7; rewrite <- H7.
-apply traceR_NonTerm.
- simpl; intros; intro.
-  { 
-*)
+  intros tr1 tr2 Rtr; induction Rtr; simpl; apply Proper_oexpr.
+  { apply mkLamExt_leq. rewrite H2. reflexivity. }
+  { apply mkLamExt_leq. rewrite H2. rewrite H3. reflexivity. }
+  { apply mkLamExt_leq. rewrite H2. f_equiv. rewrite IHRtr. f_equiv.
+    apply mkLamExt_leq. rewrite H2. reflexivity. }
+  { apply mkLamExt_leq. etransitivity; [ | apply ounion_leq1 ].
+    rewrite H2. reflexivity. }
+Qed.
+
+Definition traceBindM_ofun {St A B} `{OType St} `{OType A} `{OType B} :
+  trace St A -o> (A -o> St -o> DownSet (trace St B)) -o> DownSet (trace St B) :=
+  {| ofun_app := trace_bindM |}.
+
+Definition otraceBindM {ctx St A B} `{OType St} `{OType A} `{OType B} :
+  OExpr ctx (trace St A -o> (A -o> St -o> DownSet (trace St B)) -o>
+             DownSet (trace St B)) :=
+  const_ofun traceBindM_ofun.
 
 (* FIXME: laws for otraceBind, otraceTerm, and otraceStep *)
 
@@ -141,7 +173,7 @@ apply traceR_NonTerm.
 
 (* A trace computation starts from any given input state, and generates a trace
 of intermediate states followed by an optional final state (if it terminates) *)
-Definition TraceM St `{OType St} A `{OType A} := St -o> FixM (trace St A).
+Definition TraceM St `{OType St} A `{OType A} := St -o> DownSet (trace St A).
 
 Instance OTypeF_TraceM St `{OType St} : OTypeF (TraceM St) := fun _ _ => _.
 
@@ -154,42 +186,11 @@ Instance MonadOps_TraceM St `{OType St} : MonadOps (TraceM St) :=
        fun _ _ _ _ =>
          oexpr (ofun m => ofun f => ofun st =>
                 obind @o@ (ovar m @o@ ovar st) @o@
-                      (ofun tr => ofun b =>
-                       otraceBind 
-)
-)
+                      (ofun tr => otraceBindM @o@ ovar tr @o@ ovar f))
  |}.
 
 
-         (* For each input st, return x as the output and st as the final state,
-         with no intermediate states *)
-         lambdaDownSet (fun st => downClose ([], Some (x, st)));
-     bindM :=
-       fun _ _ _ _ m f =>
-         (* For each input state st... *)
-         lambdaDownSet
-           (fun st =>
-              bindDownSet
-                (* Pass st into m *)
-                (applyDownSet m st)
-                (fun trace_out1 =>
-                   (* Get (trace1, out) = (m st), and test if out is a Some *)
-                   optElim
-                     (fun a_st1 =>
-                        (* If (m st) = (trace1, Some (a, st2)), then get
-                           (trace2, out) = (f a st), and return the result
-                           (trace1 ++ trace2, out) *)
-                        mapDownSet
-                          (fun trace_out2 =>
-                             (fst trace_out1 ++ fst trace_out2, snd trace_out2))
-                          (applyDownSet (f (fst a_st1)) (snd a_st1)))
-                     (* Otherwise, m did not terminate, so we don't call f at
-                     all, and just return (trace1, None) *)
-                     (downClose (fst trace_out1, None))
-                     (* (snd trace_out1) is the option output of (m st) *)
-                     (snd trace_out1)))
-  |}.
-
+(*
 Instance Monad_TraceM St `{OType St} : Monad (TraceM St).
 Proof.
   constructor.
@@ -223,3 +224,4 @@ Proof.
       intros tr_ret1 tr_ret2 Rtr_ret. rewrite Rtr_ret. reflexivity.
     - intros st1 st2 Rst. rewrite Rst. reflexivity. }
   { intros.
+*)
