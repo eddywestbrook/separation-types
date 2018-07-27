@@ -110,6 +110,12 @@ Notation "x @o@ y" :=
 
 (* Build an A from an OExpr in unit context of type A *)
 Definition oexpr {A} `{OType A} (e: OExpr CNil A) : A := ofun_app e tt.
+Arguments oexpr {_ _} e : simpl never.
+
+Instance Proper_oexpr {A} `{OType A} : Proper (oleq ==> oleq) (@oexpr A _).
+Proof.
+  intros c1 c2 Rc. apply Rc. reflexivity.
+Qed.
 
 (* Build an OExpr from a constant *)
 Definition oconst {ctx A} `{OType A} (a:A) : OExpr ctx A :=
@@ -518,6 +524,20 @@ Lemma ofunEta' {ctx A B} `{OType A} `{OType B} (e: OExpr ctx (A -o> B)) :
   (ofun x => ovar e @o@ x) =o= e.
 Proof.
   apply funOExt; intro celem. apply funOExt; intro a. reflexivity.
+Qed.
+
+Lemma mkLamExt {ctx A B} `{OType A} `{OType B}
+      (body1 body2: OExpr (ctx :> A) A -> OExpr (ctx :> A) B) :
+  body1 var_top =o= body2 var_top -> mkLam body1 =o= mkLam body2.
+Proof.
+  intro pf. apply funOExt; intro celem. unfold mkLam. rewrite pf. reflexivity.
+Qed.
+
+Lemma mkLamExt_leq {ctx A B} `{OType A} `{OType B}
+      (body1 body2: OExpr (ctx :> A) A -> OExpr (ctx :> A) B) :
+  body1 var_top <o= body2 var_top -> mkLam body1 <o= mkLam body2.
+Proof.
+  intro pf. intros c1 c2 Rc; rewrite Rc. unfold mkLam. rewrite pf. reflexivity.
 Qed.
 
 Lemma ofunBeta {ctx A B} `{OType A} `{OType B}
