@@ -185,6 +185,15 @@ Proof.
       transitivity b0; assumption.
 Defined.
 
+(* Lift order relation to subset types by ignoring the proof term. *)
+Instance OTsubset A `{OType A} {P : A -> Prop} : OType {a : A | P a} :=
+  {| oleq := fun x y => proj1_sig x <o= proj1_sig y |}.
+Proof.
+  constructor.
+  - firstorder.
+  - unfold Transitive. etransitivity; eauto.
+Defined.
+
 
 (* The sort-of pointwise relation on sum types *)
 Inductive sumR {A B} (RA:OType A) (RB:OType B) : A+B -> A+B -> Prop :=
@@ -256,6 +265,16 @@ Proof.
   { transitivity (ofun_app y a1).
     - apply H1; reflexivity.
     - apply H2; assumption. }
+Defined.
+
+(* OType instance for non-proper functions. 
+   TODO: rename *)
+Instance OTarrow' A B `{OType A} `{OType B} : OType (A -> B) :=
+  {| oleq := fun f g => forall x, oleq (f x) (g x) |}.
+Proof.
+  repeat constructor; intro; intros.
+  { reflexivity. }
+  { etransitivity; eauto. }
 Defined.
 
 

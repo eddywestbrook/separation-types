@@ -8,3 +8,4 @@
 ./theories/DownSet.v
 ./theories/TraceMonad.v
 ./theories/Lens.v
+./theories/Functor.v
