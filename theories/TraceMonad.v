@@ -70,7 +70,7 @@ Definition traceNonTerm_ofun {St A} `{OType St} `{OType A}
   {| ofun_app := Trace_NonTerm |}.
 
 Definition otraceNonTerm {ctx St A} `{OType St} `{OType A} :
-  OExpr ctx (St -o> trace St A) := const_ofun traceNonTerm_ofun.
+  OExpr ctx (St -o> trace St A) := oconst traceNonTerm_ofun.
 
 
 Program Definition traceTerm_ofun {St A} `{OType St} `{OType A} :
@@ -80,7 +80,7 @@ Next Obligation. apply Proper_Trace_Term; reflexivity. Defined.
 Next Obligation. apply Proper_Trace_Term; reflexivity. Defined.
 
 Definition otraceTerm {ctx St A} `{OType St} `{OType A} :
-  OExpr ctx (St -o> A -o> trace St A) := const_ofun traceTerm_ofun.
+  OExpr ctx (St -o> A -o> trace St A) := oconst traceTerm_ofun.
 
 
 Program Definition traceStep_ofun {St A} `{OType St} `{OType A} :
@@ -90,7 +90,7 @@ Next Obligation. apply Proper_Trace_Step; reflexivity. Defined.
 Next Obligation. apply Proper_Trace_Step; reflexivity. Defined.
 
 Definition otraceStep {ctx St A} `{OType St} `{OType A} :
-  OExpr ctx (St -o> trace St A -o> trace St A) := const_ofun traceStep_ofun.
+  OExpr ctx (St -o> trace St A -o> trace St A) := oconst traceStep_ofun.
 
 
 (* Construct the trace that extends tr with (f fin) if tr terminates in state
@@ -121,7 +121,7 @@ Next Obligation. apply Proper_trace_bind; reflexivity. Defined.
 
 Definition otraceBind {ctx St A B} `{OType St} `{OType A} `{OType B} :
   OExpr ctx (trace St A -o> (A -o> St -o> trace St B) -o> trace St B) :=
-  const_ofun traceBind_ofun.
+  oconst traceBind_ofun.
 
 (* Construct the set of all traces that extend tr with a trace in (f fin) if tr
 terminates in state fin *)
@@ -136,7 +136,7 @@ Fixpoint trace_bindM {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
     oexpr
       (ofun f =>
        ounion @o@ (oreturn @o@ (otraceNonTerm @o@ oconst st))
-              @o@ (obind @o@ (const_ofun (trace_bindM tr') @o@ f)
+              @o@ (obind @o@ (oconst (trace_bindM tr') @o@ f)
                          @o@ (ofun tr'' =>
                               oreturn @o@ (otraceStep @o@ oconst st @o@ tr''))))
   end.
@@ -162,7 +162,7 @@ Definition traceBindM_ofun {St A B} `{OType St} `{OType A} `{OType B} :
 Definition otraceBindM {ctx St A B} `{OType St} `{OType A} `{OType B} :
   OExpr ctx (trace St A -o> (A -o> St -o> DownSet (trace St B)) -o>
              DownSet (trace St B)) :=
-  const_ofun traceBindM_ofun.
+  oconst traceBindM_ofun.
 
 (* FIXME: laws for otraceBind, otraceTerm, and otraceStep *)
 

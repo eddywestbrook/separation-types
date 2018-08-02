@@ -12,10 +12,10 @@ Class MonadOps M `{OTypeF M} : Type :=
         M A _ -o> (A -o> M B _) -o> M B _ }.
 
 Definition oreturn {ctx} `{MonadOps} {A} `{OType A} : OExpr ctx (A -o> M A _) :=
-  const_ofun returnM.
+  oconst returnM.
 Definition obind {ctx} `{MonadOps} {A B} `{OType A} `{OType B} :
   OExpr ctx (M A _ -o> (A -o> M B _) -o> M B _) :=
-  const_ofun bindM.
+  oconst bindM.
 Notation "'do' x <- m1 ; m2" :=
   (obind @o@ m1 @o@ mkLam (fun x => m2)) (at level 60, right associativity).
 

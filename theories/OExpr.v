@@ -574,7 +574,7 @@ Qed.
  *** Ordered Expressions for Unit
  ***)
 
-Definition ott {ctx} : OExpr ctx unit := const_ofun tt.
+Definition ott {ctx} : OExpr ctx unit := oconst tt.
 
 Lemma ott_terminal {ctx} (e: OExpr ctx unit) : e =o= ott.
 Proof.
@@ -587,11 +587,11 @@ Qed.
  ***)
 
 Definition opair {ctx A B} `{OType A} `{OType B} : OExpr ctx (A -o> B -o> A*B) :=
-  const_ofun (ofun_curry id_ofun).
+  oconst (ofun_curry id_ofun).
 Definition ofst {ctx A B} `{OType A} `{OType B} : OExpr ctx (A * B -o> A) :=
-  const_ofun fst_ofun.
+  oconst fst_ofun.
 Definition osnd {ctx A B} `{OType A} `{OType B} : OExpr ctx (A * B -o> B) :=
-  const_ofun snd_ofun.
+  oconst snd_ofun.
 
 Notation "( x ,o, y )" := (opair @o@ x @o@ y : OExpr _ _) (at level 0).
 
@@ -621,12 +621,12 @@ Qed.
  ***)
 
 Definition oinl {ctx A B} `{OType A} `{OType B} : OExpr ctx (A -o> A + B) :=
-  const_ofun inl_ofun.
+  oconst inl_ofun.
 Definition oinr {ctx A B} `{OType A} `{OType B} : OExpr ctx (B -o> A + B) :=
-  const_ofun inr_ofun.
+  oconst inr_ofun.
 Definition osumElim {ctx A B C} `{OType A} `{OType B} `{OType C} :
   OExpr ctx ((A -o> C) -o> (B -o> C) -o> A + B -o> C) :=
-  const_ofun sum_elim_ofun.
+  oconst sum_elim_ofun.
 
 Lemma osumElim_oinl {ctx A B C} `{OType A} `{OType B} `{OType C}
       (f1 : OExpr ctx (A -o> C)) (f2 : OExpr ctx (B -o> C)) e :
@@ -647,25 +647,25 @@ Qed.
  *** Ordered Expressions for Propositions
  ***)
 
-Definition oTrue {ctx} : OExpr ctx Prop := const_ofun True.
-Definition oFalse {ctx} : OExpr ctx Prop := const_ofun False.
+Definition oTrue {ctx} : OExpr ctx Prop := oconst True.
+Definition oFalse {ctx} : OExpr ctx Prop := oconst False.
 
 Definition oforall {ctx A} `{OType A} : OExpr ctx ((A -o> Prop) -o> Prop) :=
-  const_ofun forall_ofun.
+  oconst forall_ofun.
 Definition oexists {ctx A} `{OType A} : OExpr ctx ((A -o> Prop) -o> Prop) :=
-  const_ofun exists_ofun.
+  oconst exists_ofun.
 Definition oexists2 {ctx A} `{OType A} :
   OExpr ctx ((A -o> Prop) -o> (Flip A -o> Prop) -o> Prop) :=
-  const_ofun exists2flip_ofun.
+  oconst exists2flip_ofun.
 
 Definition oand {ctx} : OExpr ctx (Prop -o> Prop -o> Prop) :=
-  const_ofun and_ofun.
+  oconst and_ofun.
 Definition oor {ctx} : OExpr ctx (Prop -o> Prop -o> Prop) :=
-  const_ofun or_ofun.
+  oconst or_ofun.
 Definition oimpl {ctx} : OExpr ctx (Flip Prop -o> Prop -o> Prop) :=
-  const_ofun impl_ofun.
+  oconst impl_ofun.
 Definition oappr {ctx A} `{OType A} : OExpr ctx (Flip A -o> A -o> Prop) :=
-  const_ofun oleq_ofun.
+  oconst oleq_ofun.
 
 
 Lemma oor_leq1 {ctx} (P Q: OExpr ctx Prop) : P <o= oor @o@ P @o@ Q.

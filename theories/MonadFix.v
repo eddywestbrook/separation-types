@@ -10,7 +10,7 @@ Class MonadFixOps M `{OTypeF M} : Type :=
 
 Definition ofix {ctx} `{MonadFixOps} {A B} `{OType A} `{OType B} :
   OExpr ctx (((A -o> M B _) -o> (A -o> M B _)) -o> (A -o> M B _)) :=
-  const_ofun fixM.
+  oconst fixM.
 
 
 Class MonadFix M {OF:OTypeF M} `{@MonadOps M OF} `{@MonadFixOps M OF} : Prop :=
@@ -25,7 +25,7 @@ Class MonadBottomOps M `{OTypeF M} : Type :=
   { bottomM : forall {A} `{OType A}, M A _ }.
 
 Definition obottom {ctx} `{MonadBottomOps} {A} `{OType A} : OExpr ctx (M A _) :=
-  const_ofun bottomM.
+  oconst bottomM.
 
 Class MonadBottom M {OF:OTypeF M} `{@MonadOps M OF}
       `{@MonadBottomOps M OF} : Prop :=
