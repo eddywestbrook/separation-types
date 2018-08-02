@@ -1,8 +1,4 @@
-(* Require Import Coq.Classes.Morphisms. *)
 Require Import Coq.Classes.RelationClasses.
-(* Require Import Coq.Relations.Relation_Definitions. *)
-(* Require Import Coq.Relations.Relation_Operators. *)
-
 Require Import Coq.Program.Wf.
 Require Import Omega.
 
@@ -28,7 +24,6 @@ Section functor.
     oTypeF :> forall X oX, OType (F X oX).
 
   Class FMap (F : TypeF) {oF : OTypeF F} : Type :=
-    (* fmap : forall {X Y oX oY}, (X -o> Y) -o> F X oX -o> F Y oY. *)
     fmap : forall {X Y oX oY}, (X -o> Y) -> F X oX -o> F Y oY.
 
   Class Functor (F : TypeF) {oF : OTypeF F} {fm : FMap F}
@@ -88,7 +83,6 @@ Section productPDiagram.
     fun n => pair_ofun (proj n ∘ fst_ofun) (proj n ∘ snd_ofun).
 End productPDiagram.
 
-
 Lemma product_proper A B `(OType A) `(OType B) (a c : A) (b d : B) :
   a =o= c ->
   b =o= d ->
@@ -99,6 +93,10 @@ Lemma product_inv A B `(OType A) `(OType B) (a c : A) (b d : B) :
   (a, b) =o= (c, d) ->
   a =o= c /\ b =o= d.
 Proof. firstorder. Qed.
+
+
+(** The following two operations and subsequent proofs are used in the
+    fold and unfold morphisms of the product functor. *)
 
 (* Zip together two chains to form a single product chain. *)
 Program Definition zipPChain {f1 f2} `{PDiagram f1} `{PDiagram f2} :
@@ -131,13 +129,13 @@ Qed.
 Next Obligation. intros f g Heq; split; intros n; apply Heq. Qed.
 
 (* Zip and unzip are an isomorphism. *)
-Lemma zip_unzip_PChain {f1 f2} `{PDiagram f1} `{PDiagram f2} :
+Lemma zip_unzip_PChain f1 f2 `{PDiagram f1} `{PDiagram f2} :
   @zipPChain f1 f2 _ _ _ _ ∘ @unzipPChain f1 f2 _ _ _ _ =o= id_ofun.
 Proof.
   split; intros c1 c2 Hleq n; apply Hleq.
 Qed.
 
-Lemma unzip_zip_PChain {f1 f2} `{PDiagram f1} `{PDiagram f2} :
+Lemma unzip_zip_PChain f1 f2 `{PDiagram f1} `{PDiagram f2} :
   @unzipPChain f1 f2 _ _ _ _ ∘ zipPChain =o= id_ofun.
 Proof.
   split; intros [] [] []; split; simpl; try apply H1; apply H2.
@@ -162,7 +160,8 @@ Section pDiagramMap.
 End pDiagramMap.
 
 
-(* Mapping a natural transformation over a PChain. *)
+(** Mapping a natural transformation over a PChain. This is used for
+    defining the unLeaf and unNode operations on chains. *)
 Section pChainMap.
   Context f1 `{PDiagram f1} f2 `{PDiagram f2}
           (α : forall n, f1 n -o> f2 n)
@@ -248,17 +247,6 @@ Section functorPDiagram.
     : OTypeSequence type_n := fun n => _.
   Global Instance FunctorPDiagram : PDiagram type_n := proj_n.
 End functorPDiagram.
-
-
-(* Lemma fmap_comp_pointwise A B C `{OType A} `{OType B} `{OType C} *)
-(*       F `{Functor F} (f : A -p> B) (g : B -p> C) x : *)
-(*   fmap @p@ g @p@ (fmap @p@ f @p@ x) =o= fmap @p@ (g ∘ f) @p@ x. *)
-(* Proof. *)
-(*   destruct H2. *)
-(*   specialize (fmap_comp0 _ _ _ _ _ _ f g). *)
-(*   destruct fmap_comp0. simpl in *. *)
-(*   split; try apply H5; try apply H6; reflexivity. *)
-(* Qed. *)
 
 
 (** The constant functor for some fixed ordered type T. *)
@@ -381,7 +369,7 @@ Section productFunctor.
     intros Hid; rewrite Hid; rewrite id_compose_ofun; reflexivity.
   Qed.
 
-  Lemma compose_pair_ofun {A B C D E F} `{OType A} `{OType B} `{OType C}
+  Lemma compose_pair_ofun A B C D E F `{OType A} `{OType B} `{OType C}
         `{OType D} `{OType E} `{OType F}
         (f : A -o> C) (g : B -o> D) (h : C -o> E) (k : D -o> F) :
     pair_ofun (h ∘ fst_ofun) (k ∘ snd_ofun) ∘
@@ -411,15 +399,17 @@ Section productFunctor.
 End productFunctor.
 
 
+(* This is the basic core of fmap for both the preorder and PER
+   functors. *)
 Definition fmapRel {A B} `{OType A} `{OType B} (f : A -o> B)
            (R : relation A) : relation B :=
   fun y1 y2 => exists x1 x2, f @@ x1 =o= y1 /\ f @@ x2 =o= y2 /\ R x1 x2.
 
 
-Class PreOrder {A} `{OType A} (R : relation A) : Prop :=
-  { Proper_PreOrder :> Proper (oeq ==> oeq ==> oleq) R
-  ; Reflexive_PreOrder :> Reflexive R
-  ; Transitive_PreOrder :> Transitive R }.
+(* The class of proper preorders. *)
+Class Preorder {A} `{OType A} (R : relation A) : Prop :=
+  { Proper_Preorder :> Proper (oeq ==> oeq ==> oleq) R
+  ; PreOrder_Preorder :> PreOrder R }.
 
 
 Inductive clos_refl_trans {A} `{OType A} (R : relation A) (x : A) : A -> Prop :=
@@ -434,11 +424,11 @@ Inductive clos_refl_trans {A} `{OType A} (R : relation A) (x : A) : A -> Prop :=
 Section preorderFunctor.
   Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}.
 
-  Definition PreOrderF : TypeF := fun X oX => {R : relation (F _ _) | PreOrder R}.
+  Definition PreOrderF : TypeF := fun X oX => {R : relation (F _ _) | Preorder R}.
 
   Global Instance PreOrderOTypeF : OTypeF PreOrderF := fun _ _ => _.
 
-  Instance Proper_clos_refl_trans {A} `{OType A} (R : relation A) :
+  Global Instance Proper_clos_refl_trans {A} `{OType A} (R : relation A) :
     Proper (oeq ==> oeq ==> oleq) R ->
     Proper (oeq ==> oeq ==> oleq) (clos_refl_trans R).
   Proof.
@@ -451,7 +441,7 @@ Section preorderFunctor.
       apply IHHclos2; auto; reflexivity.
   Qed.
 
-  Instance Proper_fmapRel {A B} `{OType A} `{OType B}
+  Global Instance Proper_fmapRel {A B} `{OType A} `{OType B}
            (f : A -o> B) (R : relation A) :
     Proper (oeq ==> oeq ==> oleq) R ->
     Proper (oeq ==> oeq ==> oleq) (fmapRel f R). 
@@ -469,8 +459,9 @@ Section preorderFunctor.
     constructor.
     - apply Proper_clos_refl_trans, Proper_fmapRel;
         destruct R as [R HR]; destruct HR; auto.
-    - intros ?; apply rt_refl; reflexivity.
-    - intros ?; apply rt_trans.
+    - constructor.
+      + intros ?; apply rt_refl; reflexivity.
+      + intros ?; apply rt_trans.
   Qed.
 
   Global Program Instance PreOrderFMap : FMap PreOrderF :=
@@ -548,6 +539,7 @@ Section preorderFunctor.
 End preorderFunctor.
 
 
+(* The class of partial equivalence relations (PERs). *)
 Class PER {A} `{OType A} (R : relation A) : Prop :=
   { Proper_PER :> Proper (oeq ==> oeq ==> oleq) R
   ; Symmetric_PER :> Symmetric R
@@ -562,7 +554,7 @@ Section perFunctor.
 
   Global Instance PEROTypeF : OTypeF PERF := fun _ _ => _.
 
-  Instance Proper_clos_trans {A} `{OType A} {R : relation A} :
+  Global Instance Proper_clos_trans {A} `{OType A} {R : relation A} :
     Proper (oeq ==> oeq ==> oleq) R ->
     Proper (oeq ==> oeq ==> oleq) (clos_trans R).
   Proof.
@@ -616,6 +608,9 @@ Section perFunctor.
     - eapply t_trans; eauto.
   Qed.
 
+  (* This is mostly a copy of the preorder functor proof. There's
+     probably a way to factor out the common parts but it's much
+     easier to just do this. *)
   Global Program Instance PERFunctor : Functor PERF.
   Next Obligation.
     split.
@@ -690,41 +685,10 @@ Section tree.
       tree_oleq t2 t2' ->
       tree_oleq (Node t1 t2) (Node t1' t2').
 
-  Fixpoint tree_size {A} (t : Tree A) :=
-    match t with
-    | Leaf _ => 1
-    | Node t1 t2 => 1 + tree_size t1 + tree_size t2
-    end.
-
-  (* Fixpoint tree_oleq' {A} `{OType A} (t1 t2 : Tree A) : Prop := *)
-  (*   match t1, t2 with *)
-  (*   | Leaf x, Leaf y => x <o= y *)
-  (*   | Node t11 t12, Node t21 t22 => *)
-  (*     tree_oleq t11 t21 /\ tree_oleq t12 t22 *)
-  (*   | _, _ => False *)
-  (*   end. *)
-
-  (* Lemma tree_oleq_equivalent {A} `{OType A} (t1 t2 : Tree A) : *)
-  (*   tree_oleq t1 t2 <-> tree_oleq' t1 t2. *)
-  (* Proof. *)
-  (*   split; intro Hleq. *)
-  (*   - induction Hleq; simpl; auto. *)
-  (*   - revert t2 Hleq. induction t1; intros. *)
-  (*     + destruct t2; try contradiction; constructor; auto. *)
-  (*     + destruct t2; try contradiction. *)
-  (*       destruct Hleq as [H0 H1]. *)
-  (*       constructor; auto. *)
-  (* Qed. *)
-
-  (* Instance Reflexive_tree_oleq {A} `{OType A} : Reflexive tree_oleq. *)
-  (* Proof. *)
-  (*   intros t; induction t; firstorder; simpl; reflexivity. *)
-  (* Qed. *)
-
-  Instance Reflexive_tree_oleq {A} `{OType A} : Reflexive tree_oleq.
+  Global Instance Reflexive_tree_oleq {A} `{OType A} : Reflexive tree_oleq.
   Proof. intro x; induction x; constructor; auto; reflexivity. Qed.
 
-  Instance Transitive_tree_oleq {A} `{OType A} : Transitive tree_oleq.
+  Global Instance Transitive_tree_oleq {A} `{OType A} : Transitive tree_oleq.
   Proof.
     intros x y z Hxy Hyz; revert x z Hxy Hyz.
     induction y; intros; destruct x, z;
@@ -743,14 +707,64 @@ Section tree.
     - apply Transitive_tree_oleq.
   Qed.
 
-  Instance Proper_Leaf {A} `{OType A} :
+  Inductive isLeaf {A} : Tree A -> Prop :=
+  | isLeafLeaf : forall x, isLeaf (Leaf x).
+
+  Inductive isNode {A} : Tree A -> Prop :=
+  | isNodeNode : forall t1 t2, isNode (Node t1 t2).
+  
+  Definition isLeafb {A} (t : Tree A) : bool :=
+    match t with
+    | Leaf _ => true
+    | Node _ _ => false
+    end.
+
+  Definition isNodeb {A} (t : Tree A) : bool :=
+    match t with
+    | Leaf _ => false
+    | Node _ _ => true
+    end.
+
+  Lemma isLeaf_isLeafb A (t : Tree A) :
+    isLeaf t <-> isLeafb t = true.
+  Proof.
+    split; intros H; inversion H; auto; destruct t.
+    - constructor.
+    - simpl in H; congruence.
+  Qed.
+
+  Lemma isNode_isNodeb A (t : Tree A) :
+    isNode t <-> isNodeb t = true.
+  Proof.
+    split; intros H; inversion H; auto; destruct t.
+    - simpl in H; congruence.
+    - constructor.
+  Qed.
+
+  (* tree_oleq is reflexive wrt equivalence. *)
+  Lemma Reflexive'_tree_oleq A `{OType A} t1 t2 :
+    t1 =o= t2 ->
+    tree_oleq t1 t2.
+  Proof. firstorder. Qed.
+
+  Global Instance Proper_tree_oleq' A `{OType A} :
+    Proper (oeq ==> oeq ==> oleq) tree_oleq.
+  Proof.
+    intros x y Hleq1 z w Hleq2 Hleq3.
+    rewrite <- Hleq1.
+    etransitivity; eauto.
+    apply Reflexive'_tree_oleq; auto.
+  Qed.
+
+  Global Instance Proper_Leaf {A} `{OType A} :
     Proper (oleq ==> oleq) Leaf.
   Proof. constructor; auto. Qed.
   
-  Instance Proper_Node {A} `{OType A} :
+  Global Instance Proper_Node {A} `{OType A} :
     Proper (oleq ==> oleq ==> oleq) Node.
   Proof. constructor; auto. Qed.
 
+  (* Plain-old fmap for trees. *)
   Fixpoint tree_fmap {A B} `{OType A} `{OType B} (f : A -o> B)
            (t : Tree A) : Tree B :=
     match t with
@@ -758,6 +772,15 @@ Section tree.
     | Node t1 t2 => Node (tree_fmap f t1) (tree_fmap f t2)
     end.
 
+  Global Instance Proper_tree_fmap {A B} `{OType A} `{OType B} (f : A -o> B) :
+    Proper (oleq ==> oleq) (tree_fmap f).
+  Proof.
+    intros x y Hleq; induction Hleq; simpl.
+    + rewrite H1; reflexivity.
+    + constructor; auto.
+  Qed.
+
+  (* OFun version of fmap. *)
   Program Definition Tree_fmap {A B} `{OType A} `{OType B} (f : A -o> B)
     : Tree A -o> Tree B :=
     {| ofun_app := fun t => tree_fmap f t |}.
@@ -767,6 +790,17 @@ Section tree.
     - constructor; auto.
   Qed.
 
+  Global Instance Proper_Tree_fmap {A B} `{OType A} `{OType B} :
+    Proper (@oleq (A -o> B) _ ==> oleq) (Tree_fmap).
+  Proof.
+    intros ? ? ? ? ? Hleq2; induction Hleq2; constructor; auto.
+  Qed.
+
+  Global Instance Proper_Tree_fmap' {A B} `{OType A} `{OType B} :
+    Proper (@oeq (A -o> B) _ ==> oeq) (Tree_fmap).
+  Proof. intros ? ? Heq; split; apply Proper_Tree_fmap; apply Heq. Qed.
+
+  (* tree_fmap satisfies the functor laws. *)
   Lemma tree_fmap_id A `{OType A} x :
     tree_fmap id_ofun x =o= x.
   Proof.
@@ -775,17 +809,20 @@ Section tree.
     - simpl; rewrite IHx1, IHx2; reflexivity.
   Qed.
 
-  Lemma TreeFMap_id A `{OType A} :
+  Lemma Tree_fmap_id A `{OType A} :
     Tree_fmap id_ofun =o= id_ofun.
   Proof.
     generalize (tree_fmap_id A); intros H0; split;
       intros t1 t2 Hleq; simpl; rewrite H0; auto.
   Qed.
 
-  Lemma TreeFMap_comp A B C `{OType A} `{OType B} `{OType C}
+  Lemma Tree_fmap_comp A B C `{OType A} `{OType B} `{OType C}
         (f : A -o> B) (g : B -o> C) :
     Tree_fmap (g ∘ f) =o= Tree_fmap g ∘ Tree_fmap f.
-  Admitted.
+  Proof.
+    split; intros t1 t2 Hleq; unfold oleq; simpl;
+      induction Hleq; constructor; auto; rewrite H2; reflexivity.
+  Qed.
 
   Fixpoint unLeaf {A} (t : Tree A) : A :=
     match t with
@@ -793,9 +830,14 @@ Section tree.
     | Node t1 _ => unLeaf t1 (* shouldn't happen *)
     end.
 
-  Instance Proper_unLeaf {A} `{OType A} :
+  Global Instance Proper_unLeaf {A} `{OType A} :
     Proper (oleq ==> oleq) unLeaf.
   Proof. intros ? ? Heq; induction Heq; auto. Qed.
+
+  Lemma leaf_unleaf A (t : Tree A) :
+    isLeaf t ->
+    Leaf (unLeaf t) = t.
+  Proof. intros Hleaf; inversion Hleaf; auto. Qed.
 
   Definition unLeaf' {A} `{OType A} : Tree A -o> A :=
     {| ofun_app := unLeaf; ofun_Proper := Proper_unLeaf |}.
@@ -806,7 +848,7 @@ Section tree.
     | Node t1 _ => t1
     end.
 
-  Instance Proper_unNodeLeft {A} `{OType A} :
+  Global Instance Proper_unNodeLeft {A} `{OType A} :
     Proper (oleq ==> oleq) unNodeLeft.
   Proof.
     intros ? ? Heq; induction Heq; auto; simpl; rewrite H0; reflexivity.
@@ -821,7 +863,7 @@ Section tree.
     | Node _ t2 => t2
     end.
 
-  Instance Proper_unNodeRight {A} `{OType A} :
+  Global Instance Proper_unNodeRight {A} `{OType A} :
     Proper (oleq ==> oleq) unNodeRight.
   Proof.
     intros ? ? Heq; induction Heq; auto; simpl; rewrite H0; reflexivity.
@@ -833,6 +875,7 @@ Section tree.
 End tree.
 
 
+(** Map the Tree type constructor and fmap over a diagram. *)
 Section mapTreePDiagram.
   Definition mapTreeTypeSequence f `{PDiagram f} : nat -> Type :=
     fun n => Tree (f n).
@@ -843,48 +886,54 @@ Section mapTreePDiagram.
 End mapTreePDiagram.
 
 
+(** Operations and proofs related to chains of trees. *)
 Section treePChain.
-  
   Program Definition unLeafPChain {f} `{PDiagram f}
   : PChain (mapTreeTypeSequence f) -o> PChain f :=
     pChainMap (mapTreeTypeSequence f) f
               (fun _ => {| ofun_app := fun x => unLeaf' @@ x |}) _.
-  Next Obligation. apply Proper_unLeaf. Qed.
   Next Obligation.
     unfold oeq, oleq; split; simpl; intros ? ? Heq;
       induction Heq; simpl; auto; rewrite H0; reflexivity.
   Qed.
 
   Program Definition unNodeLeftPChain {f} `{PDiagram f}
-  : PChain (mapTreeTypeSequence f) -o> PChain (mapTreeTypeSequence f) :=
+    : PChain (mapTreeTypeSequence f) -o> PChain (mapTreeTypeSequence f) :=
     pChainMap (mapTreeTypeSequence f) (mapTreeTypeSequence f)
               (fun _ => {| ofun_app := fun x => unNodeLeft' @@ x |}) _.
-  Next Obligation. apply Proper_unNodeLeft. Qed.
   Next Obligation.
-    split; simpl.
-    - intros c1 c2 Heq.
-      unfold oleq; simpl.
-      admit.
-    - intros c1 c2 Heq.
-      unfold oleq. simpl.
-      admit.
-  Admitted.
+    split; simpl; intros c1 c2 Hleq; induction Hleq;
+      try apply Proper_tree_fmap; auto; constructor;
+        rewrite H0; reflexivity.
+  Qed.
 
   Program Definition unNodeRightPChain {f} `{PDiagram f}
-  : PChain (mapTreeTypeSequence f) -o> PChain (mapTreeTypeSequence f) :=
+    : PChain (mapTreeTypeSequence f) -o> PChain (mapTreeTypeSequence f) :=
     pChainMap (mapTreeTypeSequence f) (mapTreeTypeSequence f)
               (fun _ => {| ofun_app := fun x => unNodeRight' @@ x |}) _.
-  Next Obligation. apply Proper_unNodeRight. Qed.
   Next Obligation.
-    split; simpl.
-    - intros c1 c2 Hleq.
-      unfold oleq; simpl.
-      admit.
-    - intros c1 c2 Hleq.
-      unfold oleq; simpl.
-      admit.
-  Admitted.
+    split; simpl; intros c1 c2 Hleq; induction Hleq;
+      try apply Proper_tree_fmap; auto; constructor;
+        rewrite H0; reflexivity.
+  Qed.
 
+  Lemma unNodeLeftPChain_oleq {f} `{PDiagram f} (c1 c2 : PChain (mapTreeTypeSequence f)) :
+    c1 <o= c2 ->
+    unNodeLeftPChain @@ c1 <o= unNodeLeftPChain @@ c2.
+  Proof.
+    intros Hleq n; simpl; specialize (Hleq n);
+      destruct (chain c1 n), (chain c2 n);
+      inversion Hleq; subst; auto.
+  Qed.
+
+  Lemma unNodeRightPChain_oleq {f} `{PDiagram f} (c1 c2 : PChain (mapTreeTypeSequence f)) :
+    c1 <o= c2 ->
+    unNodeRightPChain @@ c1 <o= unNodeRightPChain @@ c2.
+  Proof.
+    intros Hleq n; simpl; specialize (Hleq n);
+      destruct (chain c1 n), (chain c2 n);
+      inversion Hleq; subst; auto.
+  Qed.
 
   Program Definition treeFold {f} `{PDiagram f} :
     Tree (PChain f) -o> PChain (mapTreeTypeSequence f) :=
@@ -914,86 +963,286 @@ Section treePChain.
                         (treeUnfold_f_aux (unNodeRightPChain @@ c) t2)
     end.
 
+  Global Instance Proper_treeUnfold_f_aux f `{PDiagram f} :
+    Proper (oeq ==> oeq ==> oeq) treeUnfold_f_aux.
+  Proof.
+    intros c1 c2 Heq1 x y Heq2.
+    split; unfold oleq; simpl.
+    - destruct Heq2 as [Heq2 _].
+      revert c1 c2 Heq1.
+      induction Heq2; intros.
+      + constructor; intros n; destruct Heq1; simpl;
+          rewrite (H1 n); reflexivity.
+      + constructor.
+        * apply IHHeq2_1; destruct Heq1 as [Heq1 Heq2]; split;
+            unfold oleq; simpl; intros n; try rewrite (Heq1 n);
+              try rewrite (Heq2 n); reflexivity.
+        * apply IHHeq2_2; destruct Heq1 as [Heq1 Heq2]; split;
+            unfold oleq; simpl; intros n; try rewrite (Heq1 n);
+              try rewrite (Heq2 n); reflexivity.
+    - destruct Heq2 as [_ Heq2].
+      revert c1 c2 Heq1.
+      induction Heq2; intros.
+      + constructor; intros n; destruct Heq1; simpl;
+          rewrite (H2 n); reflexivity.
+      + constructor.
+        * apply IHHeq2_1; destruct Heq1 as [Heq1 Heq2]; split;
+            unfold oleq; simpl; intros n; try rewrite (Heq1 n);
+              try rewrite (Heq2 n); reflexivity.
+        * apply IHHeq2_2; destruct Heq1 as [Heq1 Heq2]; split;
+            unfold oleq; simpl; intros n; try rewrite (Heq1 n);
+              try rewrite (Heq2 n); reflexivity.
+  Qed.
+
   Definition treeUnfold_f {f} `{PDiagram f}
            (c : PChain (mapTreeTypeSequence f))
     : Tree (PChain f) :=
     treeUnfold_f_aux c (chain c 0).
 
-  (* Program Fixpoint treeUnfold_f {f} `{PDiagram f} *)
-  (*         (c : PChain (mapTreeTypeSequence f)) *)
-  (*         {measure (tree_size (chain c 0))} *)
-  (*   : Tree (PChain f) := *)
-  (*   match chain c 0 with *)
-  (*   | Leaf _ => Leaf (unLeafPChain @@ c) *)
-  (*   | Node _ _ => Node (treeUnfold_f (unNodeLeftPChain @@ c)) *)
-  (*                     (treeUnfold_f (unNodeRightPChain @@ c)) *)
-  (*   end. *)
-  (* Next Obligation. simpl; omega. Qed. *)
-  (* Next Obligation. simpl; omega. Qed. *)
+  Global Instance Proper_treeUnfold_f {f} `{PDiagram f} :
+    Proper (oleq ==> oleq) treeUnfold_f.
+  Proof.
+    intros c1 c2 Hleq.
+    unfold oleq in *. simpl in *.
+    unfold treeUnfold_f.
+    pose proof Hleq as Hleq'.
+    specialize (Hleq' 0).
+    remember (chain c1 0) as x.
+    remember (chain c2 0) as y.
+    revert Heqx Heqy. revert c1 c2 Hleq.
+    induction Hleq'; intros.
+    - simpl. constructor. intros ?. simpl.
+      rewrite Hleq. reflexivity.
+    - simpl. constructor.
+      + assert (H0: t1 = chain (unNodeLeftPChain @@ c1) 0).
+        { simpl; destruct (chain c1 0); inversion Heqx; auto. }
+        assert (H1: t1' = chain (unNodeLeftPChain @@ c2) 0).
+        { simpl; destruct (chain c2 0); inversion Heqy; auto. }
+        specialize (IHHleq'1 (unNodeLeftPChain @@ c1)
+                             (unNodeLeftPChain @@ c2)
+                             (unNodeLeftPChain_oleq _ _ Hleq) H0 H1).
+        etransitivity. apply IHHleq'1.
+        apply Reflexive'_tree_oleq. reflexivity.
+      + assert (H0: t2 = chain (unNodeRightPChain @@ c1) 0).
+        { simpl; destruct (chain c1 0); inversion Heqx; auto. }
+        assert (H1: t2' = chain (unNodeRightPChain @@ c2) 0).
+        { simpl; destruct (chain c2 0); inversion Heqy; auto. }
+        specialize (IHHleq'2 (unNodeRightPChain @@ c1)
+                             (unNodeRightPChain @@ c2)
+                             (unNodeRightPChain_oleq _ _ Hleq) H0 H1).
+        etransitivity. apply IHHleq'2.
+        apply Reflexive'_tree_oleq. reflexivity.
+  Qed.
 
-  (* Program Definition treeUnfold {f} `{PDiagram f} *)
-  (*   : PChain (mapTreeTypeSequence f) -o> Tree (PChain f) := *)
-  (*   {| ofun_app := treeUnfold_f |}. *)
-  (* Next Obligation. *)
-  (*   intros c1 c2 Hleq. *)
-  (*   unfold oleq; simpl. *)
-  (*   admit. *)
-  (* Admitted. *)
-
-  Program Definition treeUnfold {f} `{PDiagram f}
+  Definition treeUnfold {f} `{PDiagram f}
     : PChain (mapTreeTypeSequence f) -o> Tree (PChain f) :=
     {| ofun_app := treeUnfold_f |}.
-  Next Obligation.
-    intros c1 c2 Hleq.
-    unfold oleq; simpl.
-    admit.
-  Admitted.
 
-  Lemma tree_fold_unfold {f} `{PDiagram f} :
+  Lemma isLeaf_oleq A `{OType A} (t1 t2 : Tree A) :
+    isLeaf t1 -> t1 <o= t2 -> isLeaf t2.
+  Proof.
+    intros Hleaf Hleq; inversion Hleq; subst;
+      try constructor; inversion Hleaf.
+  Qed.
+
+  Lemma isNode_oleq A `{OType A} (t1 t2 : Tree A) :
+    isNode t1 -> t1 <o= t2 -> isNode t2.
+  Proof.
+    intros Hnode Hleq; inversion Hleq; subst;
+      try constructor; inversion Hnode.
+  Qed.
+
+  Lemma isLeaf_fmap {A B} `{OType A} `{OType B} (t : Tree A) (f : A -o> B) :
+    isLeaf (tree_fmap f t) -> isLeaf t.
+  Proof.
+    intros Hleaf; destruct t. constructor. inversion Hleaf.
+  Qed.
+
+  Lemma isNode_fmap {A B} `{OType A} `{OType B} (t : Tree A) (f : A -o> B) :
+    isNode (tree_fmap f t) -> isNode t.
+  Proof.
+    intros Hnode. destruct t. inversion Hnode. constructor.
+  Qed.
+
+  Lemma isLeaf_chain f `{PDiagram f} (c : PChain (mapTreeTypeSequence f)) n :
+    isLeaf (chain c 0) -> isLeaf (chain c n).
+  Proof.
+    intros Hleaf; inversion Hleaf.
+    destruct c; simpl in *.
+    induction n.
+    - rewrite <- H1; constructor.
+    - specialize (chainCondition0 n).
+      generalize (isLeaf_oleq _ (chain0 n)
+                              (tree_fmap (proj n) (chain0 (S n)))
+                              IHn (proj1 chainCondition0)); intros Hleaf'.
+      apply isLeaf_fmap in Hleaf'; auto.
+  Qed.
+
+  Lemma isNode_chain f `{PDiagram f} (c : PChain (mapTreeTypeSequence f)) n :
+    isNode (chain c 0) -> isNode (chain c n).
+  Proof.
+    intros Hnode; inversion Hnode.
+    destruct c; simpl in *.
+    induction n.
+    - rewrite <- H1; constructor.
+    - specialize (chainCondition0 n).
+      generalize (isNode_oleq _ (chain0 n)
+                              (tree_fmap (proj n) (chain0 (S n)))
+                              IHn (proj1 chainCondition0)); intros Hnode'.
+      apply isNode_fmap in Hnode'; auto.
+  Qed.
+    
+  Lemma tree_fold_unfold f `{PDiagram f} :
     treeFold ∘ treeUnfold =o= id_ofun.
-  Admitted.
+  Proof.
+    split; simpl.
+    - intros c1 c2 Hleq n. unfold oleq; simpl.
+      unfold treeUnfold_f.
+      transitivity (chain c1 n).
+      + clear Hleq c2; remember (chain c1 0); revert c1 Heqm.
+        induction m; intros; simpl.
+        * assert (isLeaf (chain c1 n)).
+          { apply isLeaf_chain; rewrite <- Heqm; constructor. }
+          rewrite leaf_unleaf; auto; reflexivity.
+        * assert (isNode (chain c1 n)).
+          { apply isNode_chain; rewrite <- Heqm; constructor. }
+          inversion H0; subst; constructor.
+          -- assert (H1: m1 = chain (unNodeLeftPChain @@ c1) 0).
+             { simpl; destruct (chain c1 0); inversion Heqm; auto. }
+             specialize (IHm1 (unNodeLeftPChain @@ c1) H1).
+             etransitivity. apply IHm1.
+             simpl; rewrite <- H2; reflexivity.
+          -- assert (H1: m2 = chain (unNodeRightPChain @@ c1) 0).
+            { simpl; destruct (chain c1 0); inversion Heqm; auto. }
+            specialize (IHm2 (unNodeRightPChain @@ c1) H1).
+            etransitivity. apply IHm2.
+            simpl; rewrite <- H2; reflexivity.
+      + apply Hleq.
+    - intros c1 c2 Hleq n. unfold oleq; simpl.
+      transitivity (chain c2 n).
+      + apply Hleq.
+      + clear Hleq c1; unfold treeUnfold_f; remember (chain c2 0).
+        revert c2 Heqm; induction m; intros; simpl.
+        * assert (isLeaf (chain c2 n)).
+          { apply isLeaf_chain; rewrite <- Heqm; constructor. }
+          rewrite leaf_unleaf; auto; reflexivity.
+        * assert (isNode (chain c2 n)).
+          { apply isNode_chain; rewrite <- Heqm; constructor. }
+          inversion H0; subst; constructor.
+          -- assert (H1: m1 = chain (unNodeLeftPChain @@ c2) 0).
+             { simpl; destruct (chain c2 0); inversion Heqm; auto. }
+             specialize (IHm1 (unNodeLeftPChain @@ c2) H1).
+             transitivity (chain (unNodeLeftPChain @@ c2) n).
+             { simpl. rewrite <- H2. simpl. reflexivity. }
+             etransitivity; eauto. reflexivity.
+          -- assert (H1: m2 = chain (unNodeRightPChain @@ c2) 0).
+             { simpl; destruct (chain c2 0); inversion Heqm; auto. }
+             specialize (IHm2 (unNodeRightPChain @@ c2) H1).
+             transitivity (chain (unNodeRightPChain @@ c2) n).
+             { simpl. rewrite <- H2. simpl. reflexivity. }
+             etransitivity; eauto. reflexivity.
+  Qed.
 
-  Lemma tree_unfold_fold {f} `{PDiagram f} :
+  Lemma tree_unfold_fold f `{PDiagram f} :
     treeUnfold ∘ treeFold =o= id_ofun.
-  Admitted.
-
+  Proof.
+    split; unfold oleq; simpl.
+    - intros t1 t2 Hleq. unfold oleq; simpl.
+      induction Hleq; simpl in *.
+      + constructor; auto.
+      + unfold treeUnfold_f in *. simpl in *.
+        constructor.
+        * match goal with
+          | [ _ : tree_oleq ?x t1' |- _ ] => transitivity x
+          end; auto;
+          apply Reflexive'_tree_oleq;
+          apply Proper_treeUnfold_f_aux;
+          split; simpl; unfold oleq; simpl; reflexivity;
+          reflexivity.
+        * match goal with
+          | [ _ : tree_oleq ?x t2' |- _ ] => transitivity x
+          end; auto.
+          apply Reflexive'_tree_oleq.
+          apply Proper_treeUnfold_f_aux.
+          split; simpl; unfold oleq; simpl; reflexivity.
+          reflexivity.
+    - intros t1 t2 Hleq.
+      induction Hleq; simpl in *.
+      + transitivity (Leaf y). constructor; auto.
+        apply Reflexive'_tree_oleq.
+        split; constructor; unfold oleq; simpl; reflexivity.
+      + constructor; etransitivity; try apply IHHleq1;
+          try apply IHHleq2; apply Reflexive'_tree_oleq;
+            unfold treeUnfold_f; simpl; apply Proper_treeUnfold_f_aux;
+              split; unfold oleq; simpl; reflexivity.
+  Qed.
 End treePChain.
-
 
 (** The tree functor. *)
 Section treeFunctor.
   Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}
           {uF : UnfoldTypeF} {uOF : UnfoldOTypeF uF}
-          {fF : FoldF uF} {ufF : UnfoldF uF}.
+          {fF : FoldF uF} {ufF : UnfoldF uF}
+          {cFunc : ContinuousFunctor uF}.
 
   Definition TreeF : TypeF := fun X oX => Tree (F X oX).
 
   Global Instance TreeOTypeF : OTypeF TreeF := fun _ _ => _.
 
-  Global Program Instance TreeFMap : FMap TreeF :=
-    fun _ _ _ _ => _.
-  Admit Obligations.
+  Global Instance TreeFMap : FMap TreeF :=
+    fun _ _ _ _ => fun f => Tree_fmap (fmap f).
 
   Global Program Instance TreeFunctor : Functor TreeF.
-  Admit Obligations.
+  Next Obligation.
+    unfold fmap, TreeFMap; destruct func.
+    rewrite fmap_id0; apply Tree_fmap_id.
+  Qed.
+  Next Obligation.
+    unfold fmap, TreeFMap; destruct func.
+    rewrite fmap_comp0; apply Tree_fmap_comp.
+  Qed.
 
   Global Instance TreeUnfoldTypeF : UnfoldTypeF :=
   fun f _ _ => Tree (@unfoldTypeF uF f _ _).
   Global Instance TreeUnfoldOTypeF :
     UnfoldOTypeF TreeUnfoldTypeF := fun _ _ _ => _.
-  Global Program Instance TreeFoldF : FoldF TreeUnfoldTypeF := _.
-    (* fun f _ _ => *)
-    (*   treeFold ∘ (Tree_fmap @@ foldF f). *)
-  Admit Obligations.
-  Global Program Instance TreeUnfoldF : UnfoldF TreeUnfoldTypeF := _.
-  Admit Obligations.
+  Global Instance TreeFoldF : FoldF TreeUnfoldTypeF :=
+    fun f _ _ => treeFold ∘ Tree_fmap (foldF f).
+  Global Instance TreeUnfoldF : UnfoldF TreeUnfoldTypeF :=
+    fun f _ _ => Tree_fmap (unfoldF f) ∘ treeUnfold.
   Global Instance TreeContinuousFunctor : ContinuousFunctor TreeUnfoldTypeF.
-  Proof. Admitted.
-
+  Proof.
+    constructor.
+    - intros f o G.
+      unfold unfoldF, TreeUnfoldF, foldF, TreeFoldF.
+      rewrite compose_ofun_assoc_4.
+      rewrite tree_unfold_fold.
+      rewrite id_compose_ofun.
+      match goal with
+      | [ |- Tree_fmap ?f ∘ Tree_fmap ?g =o= _ ] =>
+        transitivity (Tree_fmap (f ∘ g))
+      end.
+      symmetry.
+      apply Tree_fmap_comp.
+      destruct cFunc. rewrite unfold_fold_id0.
+      apply Tree_fmap_id.
+    - intros f o G.
+      unfold unfoldF, TreeUnfoldF, foldF, TreeFoldF.
+      rewrite compose_ofun_assoc_4.
+      rewrite compose_ofun_middle_id.
+      apply tree_fold_unfold.
+      match goal with
+      | [ |- Tree_fmap ?f ∘ Tree_fmap ?g =o= _ ] =>
+        transitivity (Tree_fmap (f ∘ g))
+      end.
+      symmetry; apply Tree_fmap_comp.
+      destruct cFunc. rewrite fold_unfold_id0.
+      apply Tree_fmap_id.
+  Qed.
 End treeFunctor.
 
 
-(** The recursive type for memory stores. *)
+(** The recursive type for memory stores. TODO *)
 Section mem.
   (* Context ptr `{OType ptr}. *)
   (* Context value `{OType value}. *)
