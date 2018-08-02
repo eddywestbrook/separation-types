@@ -190,38 +190,43 @@ Instance MonadOps_TraceM St `{OType St} : MonadOps (TraceM St) :=
  |}.
 
 
-(*
+(* FIXME HERE: move this to OExpr! *)
+Lemma oconst_oexpr {ctx A} `{OType A} (e: OExpr CNil A) res
+      {ext: ExtendsTo CNil ctx}
+      {w: WeakensTo e (PreExtendsToBase ext) res} :
+  oconst (oexpr e) =o= res.
+Admitted.
+
+Lemma monad_returnM_bindM {ctx A B} `{OType A} `{OType B} {M} `{Monad M}
+      (f: OExpr ctx (A -o> M B _)) x :
+  oconst bindM @o@ (oconst returnM @o@ x) @o@ f =o= f @o@ x.
+apply monad_return_bind.
+Qed.
+
+Lemma monad_bindM_returnM {ctx A} `{OType A} {M} `{Monad M} (m: OExpr ctx (M A _)) :
+  oconst bindM @o@ m @o@ oconst returnM =o= m.
+apply monad_bind_return.
+Qed.
+
 Instance Monad_TraceM St `{OType St} : Monad (TraceM St).
 Proof.
-  constructor.
-  { intros. intros a1 a2 Ra. simpl. apply Proper_lambdaDownSet. intro st.
-    rewrite Ra. reflexivity. }
-  { intros. intros m1 m2 Rm f1 f2 Rf. apply Proper_lambdaDownSet. intro st.
-    rewrite Rm. apply Proper_bindDownSet; try reflexivity. intro trace_out1.
-    apply (Proper_optElim_eq _ _); try reflexivity.
-    intro a_st1. apply Proper_bindDownSet; try reflexivity.
-    apply Proper_applyDownSet; [ apply Rf | reflexivity ]. }
-  { intros. simpl.
-    rewrite <- (downSetEta (f a)).
-    apply Proper_lambdaDownSet_equiv. apply funOExt; intro st.
-    rewrite downSetBeta; [ | intros st1 st2 Rst; rewrite Rst; reflexivity ].
-    rewrite DownSet_return_bind.
-    - simpl. unfold mapDownSet.
-      etransitivity; [ | apply DownSet_bind_return ].
-      apply Proper_bindDownSet_equiv; try reflexivity.
-      apply funOExt. intros [ tr ret ]. reflexivity.
-    - intros tr_out1 tr_out2 Rtr_out.
-      eapply Proper_optElim; try (rewrite Rtr_out; reflexivity).
-      intros a_st1 a_st1' Ra_st1.
-      apply Proper_bindDownSet; [ rewrite Ra_st1; reflexivity | ].
-      intro f_tr_out. rewrite Rtr_out. reflexivity. }
-  { intros. simpl. rewrite <- (downSetEta m).
-    apply Proper_lambdaDownSet_equiv. apply funOExt; intro st.
-    etransitivity; [ | apply DownSet_bind_return ].
-    f_equiv. apply funOExt. intros [ tr [[ a st'] | ]]; [ | reflexivity ].
-    simpl. unfold mapDownSet. rewrite downSetBeta.
-    - rewrite DownSet_return_bind; [ simpl; rewrite app_nil_r; reflexivity | ].
-      intros tr_ret1 tr_ret2 Rtr_ret. rewrite Rtr_ret. reflexivity.
-    - intros st1 st2 Rst. rewrite Rst. reflexivity. }
-  { intros.
-*)
+  constructor; intros; apply ofunExt; intro.
+  { unfold obind, oreturn, bindM, returnM, MonadOps_TraceM.
+    rewrite oconst_oexpr; [ | typeclasses eauto ].
+    obeta. obeta. obeta.
+    rewrite oconst_oexpr; [ | typeclasses eauto ]. obeta. obeta.
+    rewrite monad_returnM_bindM. obeta.
+    apply funOExt; intro celem. reflexivity. }
+  { unfold obind, oreturn, bindM, returnM, MonadOps_TraceM.
+    rewrite oconst_oexpr; [ | typeclasses eauto ].
+    rewrite oconst_oexpr; [ | typeclasses eauto ].
+    obeta. obeta. obeta.
+    transitivity (oconst bindM @o@ (m @o@ arg) @o@ oconst returnM);
+      [ | rewrite monad_bindM_returnM; reflexivity ].
+    f_equiv. apply ofunExt; intro. obeta.
+    admit. (* FIXME: need to prove properties of trace_bindM *)
+  }
+  {
+    admit.
+  }
+Admitted.
