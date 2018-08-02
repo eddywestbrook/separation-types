@@ -28,14 +28,15 @@ Section functor.
     oTypeF :> forall X oX, OType (F X oX).
 
   Class FMap (F : TypeF) {oF : OTypeF F} : Type :=
-    fmap : forall {X Y oX oY}, (X -o> Y) -o> F X oX -o> F Y oY.
+    (* fmap : forall {X Y oX oY}, (X -o> Y) -o> F X oX -o> F Y oY. *)
+    fmap : forall {X Y oX oY}, (X -o> Y) -> F X oX -o> F Y oY.
 
   Class Functor (F : TypeF) {oF : OTypeF F} {fm : FMap F}
     : Prop :=
-    { fmap_id : forall A oA, fmap @@ @id_ofun A oA =o= id_ofun
+    { fmap_id : forall A oA, fmap (@id_ofun A oA) =o= id_ofun
     ; fmap_comp : forall A B C `{OType A} `{OType B} `{OType C}
                     (f : A -o> B) (g : B -o> C),
-        fmap @@ (g ∘ f) =o= fmap @@ g ∘ fmap @@ f }.
+        fmap (g ∘ f) =o= fmap g ∘ fmap f }.
 End functor.
 
 
@@ -157,7 +158,7 @@ Section pDiagramMap.
   Global Program Instance pDiagramMap (f : nat -> Type) `{G : PDiagram f}
          F `{func : Functor F}
     : PDiagram (typeSequenceMap f F) :=
-    fun n => fmap @@ proj n.
+    fun n => fmap (proj n).
 End pDiagramMap.
 
 
@@ -240,7 +241,7 @@ Section functorPDiagram.
   Fixpoint proj_n (n : nat) : type_n (S n) -o> type_n n :=
     match n with
     | O => unitProj
-    | S n' => fmap @@ proj_n n'
+    | S n' => fmap (proj_n n')
     end.
 
   Global Instance FunctorOTypeSequence
@@ -266,7 +267,8 @@ Section constantFunctor.
   Definition ConstantF : TypeF := fun _ _ => T.
   Global Instance ConstantOTypeF : OTypeF ConstantF := fun _ _ => _.
   Global Instance ConstantFMap : FMap ConstantF :=
-    fun _ _ _ _ => const_ofun id_ofun.
+    fun _ _ _ _ _ => id_ofun.
+    (* fun _ _ _ _ => const_ofun id_ofun. *)
   Global Program Instance ConstantFunctor : Functor ConstantF.
   Solve Obligations with firstorder.
   Global Instance ConstantUnfoldTypeF : UnfoldTypeF := fun _ _ _ => T.
@@ -300,7 +302,8 @@ Section identityFunctor.
   Definition IdentityF : TypeF := fun X _ => X.
   Global Instance IdentityOTypeF : OTypeF IdentityF := fun _ oX => oX.
   Global Instance IdentityFMap : FMap IdentityF :=
-    fun _ _ _ _ => id_ofun.
+    fun _ _ _ _ => id.
+    (* fun _ _ _ _ => id_ofun. *)
   Program Instance IdentityFunctor : Functor IdentityF.
   Solve Obligations with reflexivity.
   Global Instance IdentityUnfoldTypeF : UnfoldTypeF := fun f _ _ => PChain f.
@@ -332,13 +335,8 @@ Section productFunctor.
   Global Instance ProductOTypeF : OTypeF ProductF := fun _ _ => OTpair _ _ _ _.
 
   Global Program Instance ProductFMap : FMap ProductF :=
-    fun _ _ _ _ =>
-      {| ofun_app := fun f => pair_ofun (fmap @@ f ∘ fst_ofun)
-                                     (fmap @@ f ∘ snd_ofun) |}.
-  Next Obligation.
-    intros f g Heq1 [x y] [z w] [Heq2 Heq3]; destruct fmap, fmap;
-      split; try apply ofun_Proper; try apply ofun_Proper0; auto.
-  Qed.
+    fun _ _ _ _ => fun f => pair_ofun (fmap f ∘ fst_ofun)
+                                (fmap f ∘ snd_ofun).
 
   Global Instance ProductFunctor : Functor ProductF.
   Proof.
@@ -348,7 +346,7 @@ Section productFunctor.
       + intros [] [] []; split; simpl; try rewrite H; try rewrite H0;
           destruct func1, func2; try rewrite fmap_id0;
             try rewrite fmap_id1; reflexivity.
-      + split; destruct func1, func2; try rewrite fmap_id0;
+      + split; destruct func1, func2; simpl; try rewrite fmap_id0;
           try rewrite fmap_id1; apply H.
     - intros A B C oA oB oC f g.
       split; split; simpl; destruct func1, func2;
@@ -369,12 +367,13 @@ Section productFunctor.
       zipPChain ∘ pair_ofun (foldF f ∘ fst_ofun) (foldF f ∘ snd_ofun).
 
 
-  Lemma asdf A B C D E `{OType A} `{OType B} `{OType C} `{OType D}
+  (* A couple convenience lemmas. *)
+  Lemma compose_ofun_assoc_4 A B C D E `{OType A} `{OType B} `{OType C} `{OType D}
         `{OType E} (f : A -o> B) (g : B -o> C) (h : C -o> D) (k : D -o> E) :
     (k ∘ h) ∘ (g ∘ f) =o= k ∘ (h ∘ g) ∘ f.
   Proof. split; intros ? ? Hleq; rewrite Hleq; reflexivity. Qed.
 
-  Lemma asdf2 A B C `{OType A} `{OType B} `{OType C} (f : A -o> B)
+  Lemma compose_ofun_middle_id A B C `{OType A} `{OType B} `{OType C} (f : A -o> B)
         (g : B -o> C) (h : C -o> B) (k : B -o> A) :
     h ∘ g =o= id_ofun ->
     k ∘ (h ∘ g) ∘ f =o= k ∘ f.
@@ -382,7 +381,7 @@ Section productFunctor.
     intros Hid; rewrite Hid; rewrite id_compose_ofun; reflexivity.
   Qed.
 
-  Lemma asdf' {A B C D E F} `{OType A} `{OType B} `{OType C}
+  Lemma compose_pair_ofun {A B C D E F} `{OType A} `{OType B} `{OType C}
         `{OType D} `{OType E} `{OType F}
         (f : A -o> C) (g : B -o> D) (h : C -o> E) (k : D -o> F) :
     pair_ofun (h ∘ fst_ofun) (k ∘ snd_ofun) ∘
@@ -397,25 +396,18 @@ Section productFunctor.
   Proof.
     constructor; intros f o G.
     - unfold unfoldF, ProductUnfoldF, foldF, ProductFoldF.
-      rewrite asdf.
-      rewrite unzip_zip_PChain.
-      rewrite id_compose_ofun.
-      etransitivity. apply asdf'.
-      destruct cFunc1. rewrite unfold_fold_id0. rewrite compose_id_ofun.
-      destruct cFunc2. rewrite unfold_fold_id1. rewrite compose_id_ofun.
-      apply pair_fst_snd_eta.
+      rewrite compose_ofun_assoc_4, unzip_zip_PChain, id_compose_ofun.
+      etransitivity. apply compose_pair_ofun.
+      destruct cFunc1 as [Huf1 _], cFunc2 as [Huf2 _]; rewrite Huf1;
+        rewrite Huf2; rewrite 2!compose_id_ofun; apply pair_fst_snd_eta.
     - unfold unfoldF, ProductUnfoldF, foldF, ProductFoldF.
-      rewrite asdf. rewrite asdf2.
-      + 
-        
-admit.
-      + etransitivity. apply asdf'.
-
-      destruct cFunc1. rewrite fold_unfold_id0. rewrite compose_id_ofun.
-      destruct cFunc2. rewrite fold_unfold_id1. rewrite compose_id_ofun.
-      apply pair_fst_snd_eta.
-  Admitted.
-
+      rewrite compose_ofun_assoc_4, compose_ofun_middle_id.
+      + (* Why won't zip_unzip_PChain apply here? *)
+        split; intros c1 c2 Hleq n; apply Hleq.
+      + etransitivity. apply compose_pair_ofun.
+        destruct cFunc1 as [_ Hfu1], cFunc2 as [_ Hfu2]; rewrite Hfu1;
+          rewrite Hfu2; rewrite 2!compose_id_ofun; apply pair_fst_snd_eta.
+  Qed.
 End productFunctor.
 
 
@@ -430,6 +422,14 @@ Class PreOrder {A} `{OType A} (R : relation A) : Prop :=
   ; Transitive_PreOrder :> Transitive R }.
 
 
+Inductive clos_refl_trans {A} `{OType A} (R : relation A) (x : A) : A -> Prop :=
+    | rt_step y : R x y -> clos_refl_trans R x y
+    | rt_refl y : x =o= y -> clos_refl_trans R x y
+    | rt_trans y z :
+          clos_refl_trans R x y ->
+          clos_refl_trans R y z ->
+          clos_refl_trans R x z.
+
 (** The preorder functor. *)
 Section preorderFunctor.
   Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}.
@@ -438,9 +438,6 @@ Section preorderFunctor.
 
   Global Instance PreOrderOTypeF : OTypeF PreOrderF := fun _ _ => _.
 
-  (* TODO: this isn't right.. I think we need a different notion of
-     reflexive transitive closure (one that is just reflexive wrt
-     oeq). *)
   Instance Proper_clos_refl_trans {A} `{OType A} (R : relation A) :
     Proper (oeq ==> oeq ==> oleq) R ->
     Proper (oeq ==> oeq ==> oleq) (clos_refl_trans R).
@@ -449,11 +446,10 @@ Section preorderFunctor.
     revert y w Heq1 Heq2.
     induction Hclos; intros.
     - apply rt_step; rewrite <- Heq1, <- Heq2; auto.
-    - admit.
-    (* - apply rt_step; rewrite <- Heq1, <- Heq2; apply Hrefl. *)
+    - apply rt_refl. rewrite <- Heq1. rewrite H0; auto.
     - apply rt_trans with y. apply IHHclos1; auto; reflexivity.
       apply IHHclos2; auto; reflexivity.
-  Admitted.
+  Qed.
 
   Instance Proper_fmapRel {A B} `{OType A} `{OType B}
            (f : A -o> B) (R : relation A) :
@@ -468,81 +464,75 @@ Section preorderFunctor.
 
   Program Definition fmapPreOrder {A B} `{OType A} `{OType B} (f : A -o> B)
           (R : PreOrderF A _) : PreOrderF B _ :=
-    clos_refl_trans (fmapRel (fmap @@ f) (proj1_sig R)).
+    clos_refl_trans (fmapRel (fmap f) (proj1_sig R)).
   Next Obligation.
     constructor.
     - apply Proper_clos_refl_trans, Proper_fmapRel;
         destruct R as [R HR]; destruct HR; auto.
-    - intros ?; apply rt_refl.
+    - intros ?; apply rt_refl; reflexivity.
     - intros ?; apply rt_trans.
   Qed.
 
-  Admit Obligations.
-
-  Instance Proper_clos_trans {A} `{OType A} {R : relation A} :
-    Proper (oeq ==> oeq ==> oleq) R ->
-    Proper (oeq ==> oeq ==> oleq) (clos_trans R).
-  Proof.
-    intros Hprop x y Heq1 z w Heq2 Hclos.
-    revert y w Heq1 Heq2.
-    induction Hclos; intros.
-    - apply t_step. rewrite <- Heq1. rewrite <- Heq2. auto.
-    - apply t_trans with y. apply IHHclos1; auto; reflexivity.
-      apply IHHclos2; auto; reflexivity.
-  Qed.
-
   Global Program Instance PreOrderFMap : FMap PreOrderF :=
-    fun _ _ _ _ =>
-      {| ofun_app := fun f => {| ofun_app := fun r => fmapPreOrder f r |} |}.
+    fun _ _ _ _ => fun f => {| ofun_app := fun r => fmapPreOrder f r |}.
   Next Obligation.
     intros R1 R2 Heq1 x y Heq2.
     simpl in *.
     revert R2 Heq1.
     induction Heq2; intros.
-    - apply rt_step. admit.
-    - admit.
+    - apply rt_step.
+      destruct H3 as (x1 & x2 & ? & ? & ?).
+      exists x1, x2. split; auto. split; auto.
+      apply Heq1; auto. (* TODO: factor out? *)
+    - apply rt_refl; auto.
     - eapply rt_trans; eauto.
-  Admitted.
-  Next Obligation.
-    intros x y Heq1 R1 R2 Heq2 z w Hclos. simpl in *.
-    revert y Heq1 R2 Heq2.
-    induction Hclos; intros.
-    - admit.
-    - admit.
-    - eapply rt_trans; eauto.
-  Admitted.
+  Qed.
 
-
-Admit Obligations.
   Global Program Instance PreOrderFunctor : Functor PreOrderF.
   Next Obligation.
-    split; unfold oleq; simpl.
-    - intros R1 R2 Hleq. unfold fmapPreOrder. unfold oleq. simpl.
-      unfold oleq in Hleq. simpl in *.
-      unfold oleq. simpl.
-      intros x y Hclos.
-      admit.
-    - admit.
-  Admitted.
-
+    split.
+    - intros R1 R2 Hleq x y Hclos.
+      induction Hclos.
+      + destruct H as (x1 & x2 & ? & ? & ?).
+        destruct func as [Hid _].
+        rewrite Hid in H; rewrite Hid in H0.
+        apply Hleq; destruct R1; rewrite <- H, <- H0; auto.
+      + apply Hleq; destruct R1 as [R HR]; rewrite H; apply HR.
+      + destruct R2; etransitivity; eauto.
+    - intros R1 R2 Hleq1 x y Hleq2.
+      apply rt_step; exists x, y; destruct func as [Hid _]; split.
+      rewrite Hid; reflexivity. split. rewrite Hid; reflexivity.
+      apply Hleq1; auto.
+  Qed.
   Next Obligation.
-    split; simpl.
-    - unfold oleq. simpl.
-      intros R1 R2 Hleq. unfold oleq; simpl.
-      unfold oleq; simpl.
-      intros x y Hclos.
+    split.
+    - intros R1 R2 Hleq x y Hclos; simpl in *.
       revert R2 Hleq.
       induction Hclos; intros.
-      + admit.
-      + admit.
+      + destruct H2 as (x1 & x2 & ? & ? & ?).
+        apply rt_step. exists (fmap f @@ x1), (fmap f @@ x2).
+        destruct func as [_ Hcomp]; split; simpl.
+        rewrite Hcomp in H2; auto. split.
+        rewrite Hcomp in H3; auto. apply rt_step.
+        exists x1, x2. split. reflexivity.
+        split. reflexivity. apply Hleq; auto.
+      + apply rt_refl; auto.
       + eapply rt_trans; eauto.
-    - intros R1 R2 Hleq1.
-      intros x y Hclos; simpl in *.
+    - intros R1 R2 Hleq1 x y Hclos; simpl in *.
       revert R2 Hleq1; induction Hclos; intros.
-      + admit.
-      + admit.
+      + destruct H2 as (x1 & x2 & H2 & H3 & Hclos).
+        revert x y H2 H3.
+        induction Hclos; intros.
+        * destruct H2 as (x1 & x2 & H2 & H5 & H6).
+          rewrite <- H2 in H3; rewrite <- H5 in H4.
+          apply rt_step; exists x1, x2; destruct func as [_ Hcomp].
+          rewrite Hcomp; split; auto. split; auto. apply Hleq1; auto.
+        * rewrite H2 in H3; rewrite H3 in H4; apply rt_refl; auto.
+        * eapply rt_trans. apply IHHclos1; auto. reflexivity.
+          apply IHHclos2; auto. reflexivity.
+      + apply rt_refl; auto.
       + eapply rt_trans; eauto.
-  Admitted.
+  Qed.
 
   Global Instance PreOrderUnfoldTypeF : UnfoldTypeF :=
     fun f _ _ => PChain (typeSequenceMap f PreOrderF).
@@ -572,18 +562,101 @@ Section perFunctor.
 
   Global Instance PEROTypeF : OTypeF PERF := fun _ _ => _.
 
+  Instance Proper_clos_trans {A} `{OType A} {R : relation A} :
+    Proper (oeq ==> oeq ==> oleq) R ->
+    Proper (oeq ==> oeq ==> oleq) (clos_trans R).
+  Proof.
+    intros Hprop x y Heq1 z w Heq2 Hclos.
+    revert y w Heq1 Heq2.
+    induction Hclos; intros.
+    - apply t_step. rewrite <- Heq1. rewrite <- Heq2. auto.
+    - apply t_trans with y. apply IHHclos1; auto; reflexivity.
+      apply IHHclos2; auto; reflexivity.
+  Qed.
+
+  Instance Symmetric_clos_trans A (R : relation A) :
+    Symmetric R ->
+    Symmetric (clos_trans R).
+  Proof.
+    intros Hsym x y Hclos; induction Hclos.
+    - apply t_step. apply Hsym; auto.
+    - eapply t_trans; eauto.
+  Qed.
+
+  Instance Symmetric_fmapRel A B `{OType A} `{OType B} (f : A -o> B) (R : relation A) :
+    Symmetric R ->
+    Symmetric (fmapRel f R).
+  Proof.
+    intros Hsym x y (x1 & x2 & ? & ? & ?).
+    exists x2, x1. split; auto.
+  Qed.
+
   Program Definition fmapPER {A B} `{OType A} `{OType B} (f : A -o> B)
           (R : PERF A _) : PERF B _ :=
-    clos_trans (fmapRel (fmap @@ f) (proj1_sig R)).
-  Admit Obligations.
+    clos_trans (fmapRel (fmap f) (proj1_sig R)).
+  Next Obligation.
+    constructor.
+    - apply Proper_clos_trans. apply Proper_fmapRel.
+      destruct R; auto. simpl. destruct p; auto.
+    - apply Symmetric_clos_trans.
+      apply Symmetric_fmapRel.
+      destruct R, p; auto.
+    - intros ?; eapply t_trans; eauto.
+  Qed.
 
   Global Program Instance PERFMap : FMap PERF :=
-    fun _ _ _ _ =>
-      {| ofun_app := fun f => {| ofun_app := fun r => fmapPER f r |} |}.
-  Admit Obligations.
+    fun _ _ _ _ => fun f => {| ofun_app := fun r => fmapPER f r |}.
+  Next Obligation.
+    intros R1 R2 Hleq1 x y Hclos. simpl in *.
+    induction Hclos.
+    - apply t_step.
+      destruct H3 as (x1 & x2 & ? & ? & ?).
+      exists x1, x2. split; auto. split; auto.
+      apply Hleq1; auto.
+    - eapply t_trans; eauto.
+  Qed.
 
   Global Program Instance PERFunctor : Functor PERF.
-  Admit Obligations.
+  Next Obligation.
+    split.
+    - intros R1 R2 Hleq x y Hclos.
+      induction Hclos.
+      + destruct H as (x1 & x2 & ? & ? & ?).
+        destruct func as [Hid _].
+        rewrite Hid in H; rewrite Hid in H0.
+        apply Hleq; destruct R1; rewrite <- H, <- H0; auto.
+      + destruct R2; etransitivity; eauto.
+    - intros R1 R2 Hleq1 x y Hleq2.
+      apply t_step; exists x, y; destruct func as [Hid _]; split.
+      rewrite Hid; reflexivity. split. rewrite Hid; reflexivity.
+      apply Hleq1; auto.
+  Qed.
+  Next Obligation.
+    split.
+    - intros R1 R2 Hleq x y Hclos; simpl in *.
+      revert R2 Hleq.
+      induction Hclos; intros.
+      + destruct H2 as (x1 & x2 & ? & ? & ?).
+        apply t_step. exists (fmap f @@ x1), (fmap f @@ x2).
+        destruct func as [_ Hcomp]; split; simpl.
+        rewrite Hcomp in H2; auto. split.
+        rewrite Hcomp in H3; auto. apply t_step.
+        exists x1, x2. split. reflexivity.
+        split. reflexivity. apply Hleq; auto.
+      + eapply t_trans; eauto.
+    - intros R1 R2 Hleq1 x y Hclos; simpl in *.
+      revert R2 Hleq1; induction Hclos; intros.
+      + destruct H2 as (x1 & x2 & H2 & H3 & Hclos).
+        revert x y H2 H3.
+        induction Hclos; intros.
+        * destruct H2 as (x1 & x2 & H2 & H5 & H6).
+          rewrite <- H2 in H3; rewrite <- H5 in H4.
+          apply t_step; exists x1, x2; destruct func as [_ Hcomp].
+          rewrite Hcomp; split; auto. split; auto. apply Hleq1; auto.
+        * eapply t_trans. apply IHHclos1; auto. reflexivity.
+          apply IHHclos2; auto. reflexivity.
+      + eapply t_trans; eauto.
+  Qed.
 
   Global Instance PERUnfoldTypeF : UnfoldTypeF :=
     fun f _ _ => PChain (typeSequenceMap f PERF).
@@ -653,15 +726,21 @@ Section tree.
 
   Instance Transitive_tree_oleq {A} `{OType A} : Transitive tree_oleq.
   Proof.
-    intros x y z Hxy Hyz. admit.
-  Admitted.
+    intros x y z Hxy Hyz; revert x z Hxy Hyz.
+    induction y; intros; destruct x, z;
+      inversion Hxy; inversion Hyz; subst.
+    - constructor; etransitivity; eauto.
+    - constructor.
+      + apply IHy1; auto.
+      + apply IHy2; auto.
+  Qed.
 
   Global Program Instance OTtree A `(OType A) : OType (Tree A) :=
     {| oleq := tree_oleq |}.
   Next Obligation.
-  constructor.
-  - apply Reflexive_tree_oleq.
-  - apply Transitive_tree_oleq.
+    constructor.
+    - apply Reflexive_tree_oleq.
+    - apply Transitive_tree_oleq.
   Qed.
 
   Instance Proper_Leaf {A} `{OType A} :
@@ -682,7 +761,11 @@ Section tree.
   Program Definition Tree_fmap {A B} `{OType A} `{OType B} (f : A -o> B)
     : Tree A -o> Tree B :=
     {| ofun_app := fun t => tree_fmap f t |}.
-  Admit Obligations.
+  Next Obligation.
+    intros t1 t2 Hleq; induction Hleq; simpl.
+    - rewrite H1; reflexivity.
+    - constructor; auto.
+  Qed.
 
   Lemma tree_fmap_id A `{OType A} x :
     tree_fmap id_ofun x =o= x.
@@ -695,14 +778,9 @@ Section tree.
   Lemma TreeFMap_id A `{OType A} :
     Tree_fmap id_ofun =o= id_ofun.
   Proof.
-    generalize (tree_fmap_id A).
-    intros H0.
-    unfold Tree_fmap. simpl in *.
-    split; simpl; intros t1 t2 Hleq.
-    (* rewrite H0; auto. *)
-    admit.
-    admit.
-  Admitted.
+    generalize (tree_fmap_id A); intros H0; split;
+      intros t1 t2 Hleq; simpl; rewrite H0; auto.
+  Qed.
 
   Lemma TreeFMap_comp A B C `{OType A} `{OType B} `{OType C}
         (f : A -o> B) (g : B -o> C) :
@@ -826,17 +904,41 @@ Section treePChain.
     - apply Proper_Node; auto.
   Qed.
 
-  Program Fixpoint treeUnfold_f {f} `{PDiagram f}
-          (c : PChain (mapTreeTypeSequence f))
-          {measure (tree_size (chain c 0))}
+  Fixpoint treeUnfold_f_aux {f} `{PDiagram f}
+           (c : PChain (mapTreeTypeSequence f))
+           (t : Tree (f 0))
     : Tree (PChain f) :=
-    match chain c 0 with
+    match t with
     | Leaf _ => Leaf (unLeafPChain @@ c)
-    | Node _ _ => Node (treeUnfold_f (unNodeLeftPChain @@ c))
-                      (treeUnfold_f (unNodeRightPChain @@ c))
+    | Node t1 t2 => Node (treeUnfold_f_aux (unNodeLeftPChain @@ c) t1)
+                        (treeUnfold_f_aux (unNodeRightPChain @@ c) t2)
     end.
-  Next Obligation. simpl; omega. Qed.
-  Next Obligation. simpl; omega. Qed.
+
+  Definition treeUnfold_f {f} `{PDiagram f}
+           (c : PChain (mapTreeTypeSequence f))
+    : Tree (PChain f) :=
+    treeUnfold_f_aux c (chain c 0).
+
+  (* Program Fixpoint treeUnfold_f {f} `{PDiagram f} *)
+  (*         (c : PChain (mapTreeTypeSequence f)) *)
+  (*         {measure (tree_size (chain c 0))} *)
+  (*   : Tree (PChain f) := *)
+  (*   match chain c 0 with *)
+  (*   | Leaf _ => Leaf (unLeafPChain @@ c) *)
+  (*   | Node _ _ => Node (treeUnfold_f (unNodeLeftPChain @@ c)) *)
+  (*                     (treeUnfold_f (unNodeRightPChain @@ c)) *)
+  (*   end. *)
+  (* Next Obligation. simpl; omega. Qed. *)
+  (* Next Obligation. simpl; omega. Qed. *)
+
+  (* Program Definition treeUnfold {f} `{PDiagram f} *)
+  (*   : PChain (mapTreeTypeSequence f) -o> Tree (PChain f) := *)
+  (*   {| ofun_app := treeUnfold_f |}. *)
+  (* Next Obligation. *)
+  (*   intros c1 c2 Hleq. *)
+  (*   unfold oleq; simpl. *)
+  (*   admit. *)
+  (* Admitted. *)
 
   Program Definition treeUnfold {f} `{PDiagram f}
     : PChain (mapTreeTypeSequence f) -o> Tree (PChain f) :=
