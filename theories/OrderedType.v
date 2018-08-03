@@ -80,6 +80,17 @@ Proof.
   split; apply prp; assumption.
 Qed.
 
+Instance Proper_oeq_oleq_op4 A B C D E
+         `{OType A} `{OType B} `{OType C} `{OType D} `{OType E}
+         (f: A -> B -> C -> D -> E) :
+  Proper (oleq ==> oleq ==> oleq ==> oleq ==> oleq) f ->
+  Proper (oeq ==> oeq ==> oeq ==> oeq ==> oeq) f.
+Proof.
+  intros prp a1 a2 Ra b1 b2 Rb c1 c2 Rc d1 d2 Rd.
+  destruct Ra; destruct Rb; destruct Rc; destruct Rd.
+  split; apply prp; assumption.
+Qed.
+
 (* FIXME: figure out what versions of this we need for rewriting! *)
 Instance Proper_oleq_oleq A `{OType A}
   : Proper (oleq --> oleq ==> Basics.impl) (@oleq A _).
