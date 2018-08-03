@@ -191,11 +191,19 @@ Instance MonadOps_TraceM St `{OType St} : MonadOps (TraceM St) :=
 
 
 (* FIXME HERE: move this to OExpr! *)
+Instance ExtendsTo_CNil ctx : ExtendsTo CNil ctx | 10.
+Proof. induction ctx; typeclasses eauto. Defined.
+Typeclasses Transparent ExtendsTo_CNil.
+
+(* FIXME HERE: move this to OExpr! *)
 Lemma oconst_oexpr {ctx A} `{OType A} (e: OExpr CNil A) res
       {ext: ExtendsTo CNil ctx}
       {w: WeakensTo e (PreExtendsToBase ext) res} :
   oconst (oexpr e) =o= res.
-Admitted.
+  unfold WeakensTo in w. rewrite <- w.
+  unfold oexpr. apply funOExt; intro celem. simpl.
+  rewrite ott_terminal. reflexivity.
+Qed.
 
 Lemma monad_returnM_bindM {ctx A B} `{OType A} `{OType B} {M} `{Monad M}
       (f: OExpr ctx (A -o> M B _)) x :
