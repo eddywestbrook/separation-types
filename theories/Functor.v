@@ -191,30 +191,30 @@ End pChainMap.
     identity morphism for fold and unfold, and the proof of
     isomorphism is trivial. *)
 Section continuousFunctor.
-  Context {F} `{Functor F}.
-
-  Class UnfoldTypeF : Type :=
+  Class UnfoldTypeF (F : TypeF) : Type :=
     unfoldTypeF : forall f `{PDiagram f}, Type.
 
-  Class UnfoldOTypeF (U : UnfoldTypeF) : Type :=
+  Class UnfoldOTypeF F {U : UnfoldTypeF F} : Type :=
     unfoldOTypeF :> forall f `{PDiagram f}, OType (unfoldTypeF f).
 
-  Class UnfoldF (U : UnfoldTypeF) {UO : UnfoldOTypeF U} : Type :=
+  Class UnfoldF F `{Functor F} {U : UnfoldTypeF F} {UO : UnfoldOTypeF F}
+    : Type :=
     unfoldF : forall f `{PDiagram f},
       PChain (typeSequenceMap f F) -o> unfoldTypeF f.
 
-  Class FoldF (U : UnfoldTypeF) {UO : UnfoldOTypeF U} : Type :=
+  Class FoldF F `{Functor F} {U : UnfoldTypeF F} {UO : UnfoldOTypeF F}
+    : Type :=
     foldF : forall f `{PDiagram f},
       unfoldTypeF f -o> PChain (typeSequenceMap f F).
 
-  Class ContinuousFunctor (U : UnfoldTypeF) {UO : UnfoldOTypeF U}
-        {fold : FoldF U} {unfold : UnfoldF U} : Prop :=
+  Class ContinuousFunctor F `{Functor F} {U : UnfoldTypeF F}
+        {UO : UnfoldOTypeF F} {fold : FoldF F} {unfold : UnfoldF F}
+    : Prop :=
     { unfold_fold_id : forall f `{PDiagram f},
         unfoldF f ∘ foldF f =o= id_ofun
     ; fold_unfold_id : forall f `{PDiagram f},
         foldF f ∘ unfoldF f =o= id_ofun }.  
 End continuousFunctor.
-
 
 (** Construct a diagram by iterated application of a functor. *)
 Section functorPDiagram.
@@ -246,6 +246,43 @@ Section functorPDiagram.
   Global Instance FunctorOTypeSequence
     : OTypeSequence type_n := fun n => _.
   Global Instance FunctorPDiagram : PDiagram type_n := proj_n.
+
+  Program Definition functorUnfold
+    : PChain type_n -o> PChain (typeSequenceMap type_n F) :=
+    {| ofun_app := fun f => {| chain := fun n => chain f (S n) |} |}.
+  Next Obligation.
+    destruct f as [c Hc]; simpl; specialize (Hc (S n)); auto.
+  Qed.
+  Next Obligation.
+    intros c1 c2 Hleq n; specialize (Hleq (S n)); auto.
+  Qed.
+
+  Program Definition functorFold
+    : PChain (typeSequenceMap type_n F) -o> PChain type_n :=
+    {| ofun_app :=
+         fun f =>
+           {| chain := fun n => match n with
+                             | O => tt
+                             | S n' => chain f  n'
+                             end |} |}.
+  Next Obligation.
+    destruct n. reflexivity. destruct f as [c Hc]; apply Hc.
+  Qed.
+  Next Obligation.
+    intros c1 c2 Hleq n; destruct n. reflexivity. apply Hleq.
+  Qed.
+
+  Lemma functor_unfold_fold :
+    functorUnfold ∘ functorFold =o= id_ofun.
+  Proof. split; intros c1 c2 Hleq; apply Hleq. Qed.
+
+  Lemma functor_fold_unfold :
+    functorFold ∘ functorUnfold =o= id_ofun.
+  Proof.
+    split; intros c1 c2 Hleq []; simpl;
+      destruct (chain c1 0), (chain c2 0);
+      try reflexivity; apply (Hleq (S n)).
+  Qed.
 End functorPDiagram.
 
 
@@ -256,21 +293,20 @@ Section constantFunctor.
   Global Instance ConstantOTypeF : OTypeF ConstantF := fun _ _ => _.
   Global Instance ConstantFMap : FMap ConstantF :=
     fun _ _ _ _ _ => id_ofun.
-    (* fun _ _ _ _ => const_ofun id_ofun. *)
   Global Program Instance ConstantFunctor : Functor ConstantF.
   Solve Obligations with firstorder.
-  Global Instance ConstantUnfoldTypeF : UnfoldTypeF := fun _ _ _ => T.
+  Global Instance ConstantUnfoldTypeF : UnfoldTypeF ConstantF :=
+    fun _ _ _ => T.
   Global Instance ConstantUnfoldOTypeF
-    : UnfoldOTypeF ConstantUnfoldTypeF := fun _ _ _ => _.
-  Global Program Instance ConstantUnfoldF : UnfoldF ConstantUnfoldTypeF :=
+    : UnfoldOTypeF ConstantF := fun _ _ _ => _.
+  Global Program Instance ConstantUnfoldF : UnfoldF ConstantF :=
     fun _ _ _ => {| ofun_app := fun f => chain f 0 |}.
   Next Obligation. firstorder. Qed.
-  Global Program Instance ConstantFoldF : FoldF ConstantUnfoldTypeF :=
+  Global Program Instance ConstantFoldF : FoldF ConstantF :=
     fun _ _ _ => {| ofun_app := fun x => {| chain := fun n => x |} |}.
   Next Obligation. reflexivity. Qed.
   Next Obligation. firstorder. Qed.
-  Global Instance ConstantContinuousFunctor :
-    ContinuousFunctor ConstantUnfoldTypeF.
+  Global Instance ConstantContinuousFunctor : ContinuousFunctor ConstantF.
   Proof.
     constructor; intros f o G.
     - split; firstorder.
@@ -291,18 +327,17 @@ Section identityFunctor.
   Global Instance IdentityOTypeF : OTypeF IdentityF := fun _ oX => oX.
   Global Instance IdentityFMap : FMap IdentityF :=
     fun _ _ _ _ => id.
-    (* fun _ _ _ _ => id_ofun. *)
-  Program Instance IdentityFunctor : Functor IdentityF.
+  Global Program Instance IdentityFunctor : Functor IdentityF.
   Solve Obligations with reflexivity.
-  Global Instance IdentityUnfoldTypeF : UnfoldTypeF := fun f _ _ => PChain f.
-  Global Instance IdentityUnfoldOTypeF
-    : UnfoldOTypeF IdentityUnfoldTypeF := fun _ _ _ => _.
-  Global Program Instance IdentityUnfoldF : UnfoldF IdentityUnfoldTypeF :=
+  Global Instance IdentityUnfoldTypeF : UnfoldTypeF IdentityF :=
+    fun f _ _ => PChain f.
+  Global Instance IdentityUnfoldOTypeF : UnfoldOTypeF IdentityF :=
+    fun _ _ _ => _.
+  Global Program Instance IdentityUnfoldF : UnfoldF IdentityF :=
     fun _ _ _ => id_ofun.
-  Global Program Instance IdentityFoldF : FoldF IdentityUnfoldTypeF :=
+  Global Program Instance IdentityFoldF : FoldF IdentityF :=
     fun _ _ _ => id_ofun.
-  Global Instance IdentityContinuousFunctor :
-    ContinuousFunctor IdentityUnfoldTypeF.
+  Global Instance IdentityContinuousFunctor : ContinuousFunctor IdentityF.
   Proof. firstorder. Qed.
 End identityFunctor.
 
@@ -310,14 +345,14 @@ End identityFunctor.
 (** The product functor. *)
 Section productFunctor.
   Context F1 {oF1 : OTypeF F1} {fm1 : FMap F1} {func1 : Functor F1}
-          {uF1 : UnfoldTypeF} {uoF1 : UnfoldOTypeF uF1}
-          {foldF1 : FoldF uF1} {unfoldF1 : UnfoldF uF1}
-          {cFunc1 : ContinuousFunctor uF1}
+          {uF1 : UnfoldTypeF F1} {uoF1 : UnfoldOTypeF F1}
+          {foldF1 : FoldF F1} {unfoldF1 : UnfoldF F1}
+          {cFunc1 : ContinuousFunctor F1}
           F2 {oF2 : OTypeF F2} {fm2 : FMap F2} {func2 : Functor F2}
-          {uF2 : UnfoldTypeF} {uoF2 : UnfoldOTypeF uF2}
-          {foldF2 : FoldF uF2} {unfoldF2 : UnfoldF uF2}
-          {cFunc2 : ContinuousFunctor uF2}.
-  
+          {uF2 : UnfoldTypeF F2} {uoF2 : UnfoldOTypeF F2}
+          {foldF2 : FoldF F2} {unfoldF2 : UnfoldF F2}
+          {cFunc2 : ContinuousFunctor F2}.
+
   Definition ProductF : TypeF := fun X oX => prod (F1 X oX) (F2 X oX).
 
   Global Instance ProductOTypeF : OTypeF ProductF := fun _ _ => OTpair _ _ _ _.
@@ -342,15 +377,15 @@ Section productFunctor.
                rewrite fmap_comp1, H; reflexivity].
   Qed.
 
-  Global Instance ProductUnfoldTypeF : UnfoldTypeF :=
-  fun f _ _ => prod (@unfoldTypeF uF1 f _ _) (@unfoldTypeF uF2 f _ _).
+  Global Instance ProductUnfoldTypeF : UnfoldTypeF ProductF :=
+  fun f _ _ => prod (@unfoldTypeF F1 uF1 f _ _) (@unfoldTypeF F2 uF2 f _ _).
   Global Instance ProductUnfoldOTypeF :
-    UnfoldOTypeF ProductUnfoldTypeF := fun _ _ _ => _.
+    UnfoldOTypeF ProductF := fun _ _ _ => _.
 
-  Global Program Instance ProductUnfoldF : UnfoldF ProductUnfoldTypeF :=
+  Global Program Instance ProductUnfoldF : UnfoldF ProductF :=
     fun f _ _ =>
       pair_ofun (unfoldF f ∘ fst_ofun) (unfoldF f ∘ snd_ofun) ∘ unzipPChain.
-  Global Program Instance ProductFoldF : FoldF ProductUnfoldTypeF :=
+  Global Program Instance ProductFoldF : FoldF ProductF :=
     fun f _ _ =>
       zipPChain ∘ pair_ofun (foldF f ∘ fst_ofun) (foldF f ∘ snd_ofun).
 
@@ -379,8 +414,7 @@ Section productFunctor.
     split; intros [] [] [Hleq1 Hleq2];rewrite Hleq1, Hleq2; reflexivity.
   Qed.
 
-  Global Instance ProductContinuousFunctor :
-    ContinuousFunctor ProductUnfoldTypeF.
+  Global Instance ProductContinuousFunctor : ContinuousFunctor ProductF.
   Proof.
     constructor; intros f o G.
     - unfold unfoldF, ProductUnfoldF, foldF, ProductFoldF.
@@ -525,16 +559,14 @@ Section preorderFunctor.
       + eapply rt_trans; eauto.
   Qed.
 
-  Global Instance PreOrderUnfoldTypeF : UnfoldTypeF :=
+  (* TODO: should this use the unfoldTypeF of the functor F? *)
+  Global Instance PreOrderUnfoldTypeF : UnfoldTypeF PreOrderF :=
     fun f _ _ => PChain (typeSequenceMap f PreOrderF).
   Global Instance PreOrderUnfoldOTypeF :
-    UnfoldOTypeF PreOrderUnfoldTypeF := fun _ _ _ => _.
-  Global Instance PreOrderUnfoldF : UnfoldF PreOrderUnfoldTypeF :=
-    fun _ _ _ => id_ofun.
-  Global Instance PreOrderFoldF : FoldF PreOrderUnfoldTypeF :=
-    fun _ _ _ => id_ofun.
-  Global Instance PreOrderContinuousFunctor :
-    ContinuousFunctor PreOrderUnfoldTypeF.
+    UnfoldOTypeF PreOrderF := fun _ _ _ => _.
+  Global Instance PreOrderUnfoldF : UnfoldF PreOrderF := fun _ _ _ => id_ofun.
+  Global Instance PreOrderFoldF : FoldF PreOrderF := fun _ _ _ => id_ofun.
+  Global Instance PreOrderContinuousFunctor : ContinuousFunctor PreOrderF.
   Proof. constructor; intros; apply id_compose_ofun. Qed.
 End preorderFunctor.
 
@@ -653,15 +685,13 @@ Section perFunctor.
       + eapply t_trans; eauto.
   Qed.
 
-  Global Instance PERUnfoldTypeF : UnfoldTypeF :=
+  (* TODO: should this use the unfoldTypeF of the functor F? *)
+  Global Instance PERUnfoldTypeF : UnfoldTypeF PERF :=
     fun f _ _ => PChain (typeSequenceMap f PERF).
-  Global Instance PERUnfoldOTypeF :
-    UnfoldOTypeF PERUnfoldTypeF := fun _ _ _ => _.
-  Global Program Instance PERUnfoldF : UnfoldF PERUnfoldTypeF :=
-    fun _ _ _ => id_ofun.
-  Global Program Instance PERFoldF : FoldF PERUnfoldTypeF :=
-    fun _ _ _ => id_ofun.
-  Global Instance PERContinuousFunctor : ContinuousFunctor PERUnfoldTypeF.
+  Global Instance PERUnfoldOTypeF : UnfoldOTypeF PERF := fun _ _ _ => _.
+  Global Program Instance PERUnfoldF : UnfoldF PERF := fun _ _ _ => id_ofun.
+  Global Program Instance PERFoldF : FoldF PERF := fun _ _ _ => id_ofun.
+  Global Instance PERContinuousFunctor : ContinuousFunctor PERF.
   Proof. constructor; intros; apply id_compose_ofun. Qed.
 End perFunctor.
 
@@ -712,7 +742,7 @@ Section tree.
 
   Inductive isNode {A} : Tree A -> Prop :=
   | isNodeNode : forall t1 t2, isNode (Node t1 t2).
-  
+
   Definition isLeafb {A} (t : Tree A) : bool :=
     match t with
     | Leaf _ => true
@@ -759,7 +789,7 @@ Section tree.
   Global Instance Proper_Leaf {A} `{OType A} :
     Proper (oleq ==> oleq) Leaf.
   Proof. constructor; auto. Qed.
-  
+
   Global Instance Proper_Node {A} `{OType A} :
     Proper (oleq ==> oleq ==> oleq) Node.
   Proof. constructor; auto. Qed.
@@ -824,6 +854,8 @@ Section tree.
       induction Hleq; constructor; auto; rewrite H2; reflexivity.
   Qed.
 
+  (* Get the element out of a leaf. If the argument isn't a leaf, just
+     recurse to the left until one is found. *)
   Fixpoint unLeaf {A} (t : Tree A) : A :=
     match t with
     | Leaf x => x
@@ -839,9 +871,12 @@ Section tree.
     Leaf (unLeaf t) = t.
   Proof. intros Hleaf; inversion Hleaf; auto. Qed.
 
+  (* OFun version of unLeaf *)
   Definition unLeaf' {A} `{OType A} : Tree A -o> A :=
     {| ofun_app := unLeaf; ofun_Proper := Proper_unLeaf |}.
 
+  (* Get the left subtree of a tree. If the argument is a leaf, just
+     return it unchanged. *)
   Fixpoint unNodeLeft {A} (t : Tree A) : Tree A :=
     match t with
     | Leaf _ => t (* shouldn't happen *)
@@ -854,9 +889,12 @@ Section tree.
     intros ? ? Heq; induction Heq; auto; simpl; rewrite H0; reflexivity.
   Qed.
 
+  (* OFun version of unNodeLeft *)
   Definition unNodeLeft' {A} `{OType A} : Tree A -o> Tree A :=
     {| ofun_app := unNodeLeft; ofun_Proper := Proper_unNodeLeft |}.
 
+  (* Get the right subtree of a tree. If the argument is a leaf, just
+     return it unchanged. *)
   Fixpoint unNodeRight {A} (t : Tree A) : Tree A :=
     match t with
     | Leaf _ => t (* shouldn't happen *)
@@ -869,9 +907,9 @@ Section tree.
     intros ? ? Heq; induction Heq; auto; simpl; rewrite H0; reflexivity.
   Qed.
 
+  (* OFun version of unNodeRight *)
   Definition unNodeRight' {A} `{OType A} : Tree A -o> Tree A :=
     {| ofun_app := unNodeRight; ofun_Proper := Proper_unNodeRight |}.
-
 End tree.
 
 
@@ -1091,7 +1129,7 @@ Section treePChain.
                               IHn (proj1 chainCondition0)); intros Hnode'.
       apply isNode_fmap in Hnode'; auto.
   Qed.
-    
+
   Lemma tree_fold_unfold f `{PDiagram f} :
     treeFold ∘ treeUnfold =o= id_ofun.
   Proof.
@@ -1181,9 +1219,9 @@ End treePChain.
 (** The tree functor. *)
 Section treeFunctor.
   Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}
-          {uF : UnfoldTypeF} {uOF : UnfoldOTypeF uF}
-          {fF : FoldF uF} {ufF : UnfoldF uF}
-          {cFunc : ContinuousFunctor uF}.
+          {uF : UnfoldTypeF F} {uOF : UnfoldOTypeF F}
+          {fF : FoldF F} {ufF : UnfoldF F}
+          {cFunc : ContinuousFunctor F}.
 
   Definition TreeF : TypeF := fun X oX => Tree (F X oX).
 
@@ -1202,15 +1240,14 @@ Section treeFunctor.
     rewrite fmap_comp0; apply Tree_fmap_comp.
   Qed.
 
-  Global Instance TreeUnfoldTypeF : UnfoldTypeF :=
-  fun f _ _ => Tree (@unfoldTypeF uF f _ _).
-  Global Instance TreeUnfoldOTypeF :
-    UnfoldOTypeF TreeUnfoldTypeF := fun _ _ _ => _.
-  Global Instance TreeFoldF : FoldF TreeUnfoldTypeF :=
+  Global Instance TreeUnfoldTypeF : UnfoldTypeF TreeF :=
+  fun f _ _ => Tree (@unfoldTypeF F uF f _ _).
+  Global Instance TreeUnfoldOTypeF : UnfoldOTypeF TreeF := fun _ _ _ => _.
+  Global Instance TreeFoldF : FoldF TreeF :=
     fun f _ _ => treeFold ∘ Tree_fmap (foldF f).
-  Global Instance TreeUnfoldF : UnfoldF TreeUnfoldTypeF :=
+  Global Instance TreeUnfoldF : UnfoldF TreeF :=
     fun f _ _ => Tree_fmap (unfoldF f) ∘ treeUnfold.
-  Global Instance TreeContinuousFunctor : ContinuousFunctor TreeUnfoldTypeF.
+  Global Instance TreeContinuousFunctor : ContinuousFunctor TreeF.
   Proof.
     constructor.
     - intros f o G.
@@ -1244,10 +1281,6 @@ End treeFunctor.
 
 (** The recursive type for memory stores. TODO *)
 Section mem.
-  (* Context ptr `{OType ptr}. *)
-  (* Context value `{OType value}. *)
-  (* Definition ptrmap := ptr -> value. *)
-
   Context Z `{OType Z}.
 
   Definition memF : TypeF :=
@@ -1256,12 +1289,18 @@ Section mem.
       (TreeF (ProductF (PERF IdentityF) (PreOrderF IdentityF))).
 
   Definition MemDiag : nat -> Type := type_n memF.
-
   Definition Mem := PChain (type_n memF).
 
-  (* Definition MemPERDiag := typeSequenceMap MemDiag (PERF IdentityF). *)
-  (* Definition MemPER := PChain MemPERDiag. *)
+  Definition MemPERDiag := typeSequenceMap MemDiag (PERF IdentityF).
+  Definition MemPER := PChain MemPERDiag.
 
-  (* Definition MemPreOrderDiag := typeSequenceMap MemDiag (PreOrderF IdentityF). *)
-  (* Definition MemPreOrder := PChain MemPreOrderDiag. *)
+  Definition MemPreOrderDiag := typeSequenceMap MemDiag (PreOrderF IdentityF).
+  Definition MemPreOrder := PChain MemPreOrderDiag.
+
+  Definition asdf := @unfoldF memF _ _ _ _ _ _ MemDiag _ _.
+  Check asdf.
+
+  (* Definition sanityCheck : Mem -o> prod Z (Tree (prod MemPER MemPreOrder)) := asdf. *)
+
+  
 End mem.
