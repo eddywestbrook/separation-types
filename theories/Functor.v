@@ -454,11 +454,127 @@ Inductive clos_refl_trans {A} `{OType A} (R : relation A) (x : A) : A -> Prop :=
           clos_refl_trans R y z ->
           clos_refl_trans R x z.
 
+(* (** The preorder functor. *) *)
+(* Section preorderFunctor. *)
+(*   Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}. *)
+
+(*   Definition PreOrderF : TypeF := fun X oX => {R : relation (F _ _) | Preorder R}. *)
+
+(*   Global Instance PreOrderOTypeF : OTypeF PreOrderF := fun _ _ => _. *)
+
+(*   Global Instance Proper_clos_refl_trans {A} `{OType A} (R : relation A) : *)
+(*     Proper (oeq ==> oeq ==> oleq) R -> *)
+(*     Proper (oeq ==> oeq ==> oleq) (clos_refl_trans R). *)
+(*   Proof. *)
+(*     intros Hprop x y Heq1 z w Heq2 Hclos. *)
+(*     revert y w Heq1 Heq2. *)
+(*     induction Hclos; intros. *)
+(*     - apply rt_step; rewrite <- Heq1, <- Heq2; auto. *)
+(*     - apply rt_refl. rewrite <- Heq1. rewrite H0; auto. *)
+(*     - apply rt_trans with y. apply IHHclos1; auto; reflexivity. *)
+(*       apply IHHclos2; auto; reflexivity. *)
+(*   Qed. *)
+
+(*   Global Instance Proper_fmapRel {A B} `{OType A} `{OType B} *)
+(*            (f : A -o> B) (R : relation A) : *)
+(*     Proper (oeq ==> oeq ==> oleq) R -> *)
+(*     Proper (oeq ==> oeq ==> oleq) (fmapRel f R).  *)
+(*   Proof. *)
+(*     intros Hprop ? ? Heq1 ? ? Heq2 (x1 & x2 & ? & ? & ?). *)
+(*     exists x1, x2; split. *)
+(*     - rewrite <- Heq1; auto. *)
+(*     - split; auto; rewrite <- Heq2; auto. *)
+(*   Qed. *)
+
+(*   Program Definition fmapPreOrder {A B} `{OType A} `{OType B} (f : A -o> B) *)
+(*           (R : PreOrderF A _) : PreOrderF B _ := *)
+(*     clos_refl_trans (fmapRel (fmap f) (proj1_sig R)). *)
+(*   Next Obligation. *)
+(*     constructor. *)
+(*     - apply Proper_clos_refl_trans, Proper_fmapRel; *)
+(*         destruct R as [R HR]; destruct HR; auto. *)
+(*     - constructor. *)
+(*       + intros ?; apply rt_refl; reflexivity. *)
+(*       + intros ?; apply rt_trans. *)
+(*   Qed. *)
+
+(*   Global Program Instance PreOrderFMap : FMap PreOrderF := *)
+(*     fun _ _ _ _ => fun f => {| ofun_app := fun r => fmapPreOrder f r |}. *)
+(*   Next Obligation. *)
+(*     intros R1 R2 Heq1 x y Heq2. *)
+(*     simpl in *. *)
+(*     revert R2 Heq1. *)
+(*     induction Heq2; intros. *)
+(*     - apply rt_step. *)
+(*       destruct H3 as (x1 & x2 & ? & ? & ?). *)
+(*       exists x1, x2. split; auto. split; auto. *)
+(*       apply Heq1; auto. (* TODO: factor out? *) *)
+(*     - apply rt_refl; auto. *)
+(*     - eapply rt_trans; eauto. *)
+(*   Qed. *)
+
+(*   Global Program Instance PreOrderFunctor : Functor PreOrderF. *)
+(*   Next Obligation. *)
+(*     split. *)
+(*     - intros R1 R2 Hleq x y Hclos. *)
+(*       induction Hclos. *)
+(*       + destruct H as (x1 & x2 & ? & ? & ?). *)
+(*         destruct func as [Hid _]. *)
+(*         rewrite Hid in H; rewrite Hid in H0. *)
+(*         apply Hleq; destruct R1; rewrite <- H, <- H0; auto. *)
+(*       + apply Hleq; destruct R1 as [R HR]; rewrite H; apply HR. *)
+(*       + destruct R2; etransitivity; eauto. *)
+(*     - intros R1 R2 Hleq1 x y Hleq2. *)
+(*       apply rt_step; exists x, y; destruct func as [Hid _]; split. *)
+(*       rewrite Hid; reflexivity. split. rewrite Hid; reflexivity. *)
+(*       apply Hleq1; auto. *)
+(*   Qed. *)
+(*   Next Obligation. *)
+(*     split. *)
+(*     - intros R1 R2 Hleq x y Hclos; simpl in *. *)
+(*       revert R2 Hleq. *)
+(*       induction Hclos; intros. *)
+(*       + destruct H2 as (x1 & x2 & ? & ? & ?). *)
+(*         apply rt_step. exists (fmap f @@ x1), (fmap f @@ x2). *)
+(*         destruct func as [_ Hcomp]; split; simpl. *)
+(*         rewrite Hcomp in H2; auto. split. *)
+(*         rewrite Hcomp in H3; auto. apply rt_step. *)
+(*         exists x1, x2. split. reflexivity. *)
+(*         split. reflexivity. apply Hleq; auto. *)
+(*       + apply rt_refl; auto. *)
+(*       + eapply rt_trans; eauto. *)
+(*     - intros R1 R2 Hleq1 x y Hclos; simpl in *. *)
+(*       revert R2 Hleq1; induction Hclos; intros. *)
+(*       + destruct H2 as (x1 & x2 & H2 & H3 & Hclos). *)
+(*         revert x y H2 H3. *)
+(*         induction Hclos; intros. *)
+(*         * destruct H2 as (x1 & x2 & H2 & H5 & H6). *)
+(*           rewrite <- H2 in H3; rewrite <- H5 in H4. *)
+(*           apply rt_step; exists x1, x2; destruct func as [_ Hcomp]. *)
+(*           rewrite Hcomp; split; auto. split; auto. apply Hleq1; auto. *)
+(*         * rewrite H2 in H3; rewrite H3 in H4; apply rt_refl; auto. *)
+(*         * eapply rt_trans. apply IHHclos1; auto. reflexivity. *)
+(*           apply IHHclos2; auto. reflexivity. *)
+(*       + apply rt_refl; auto. *)
+(*       + eapply rt_trans; eauto. *)
+(*   Qed. *)
+
+(*   (* TODO: should this use the unfoldTypeF of the functor F? *) *)
+(*   Global Instance PreOrderUnfoldTypeF : UnfoldTypeF PreOrderF := *)
+(*     fun f _ _ => PChain (typeSequenceMap f PreOrderF). *)
+(*   Global Instance PreOrderUnfoldOTypeF : *)
+(*     UnfoldOTypeF PreOrderF := fun _ _ _ => _. *)
+(*   Global Instance PreOrderUnfoldF : UnfoldF PreOrderF := fun _ _ _ => id_ofun. *)
+(*   Global Instance PreOrderFoldF : FoldF PreOrderF := fun _ _ _ => id_ofun. *)
+(*   Global Instance PreOrderContinuousFunctor : ContinuousFunctor PreOrderF. *)
+(*   Proof. constructor; intros; apply id_compose_ofun. Qed. *)
+
+(*   (* Definition PreOrderF' : TypeF := fun X oX => F {R : relation X | Preorder R} _. *) *)
+(* End preorderFunctor. *)
+
 (** The preorder functor. *)
 Section preorderFunctor.
-  Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}.
-
-  Definition PreOrderF : TypeF := fun X oX => {R : relation (F _ _) | Preorder R}.
+  Definition PreOrderF : TypeF := fun X oX => {R : relation X | Preorder R}.
 
   Global Instance PreOrderOTypeF : OTypeF PreOrderF := fun _ _ => _.
 
@@ -518,16 +634,13 @@ Section preorderFunctor.
     split.
     - intros R1 R2 Hleq x y Hclos.
       induction Hclos.
-      + destruct H as (x1 & x2 & ? & ? & ?).
-        destruct func as [Hid _].
-        rewrite Hid in H; rewrite Hid in H0.
+      + destruct H as (x1 & x2 & ? & ? & ?). simpl.
         apply Hleq; destruct R1; rewrite <- H, <- H0; auto.
       + apply Hleq; destruct R1 as [R HR]; rewrite H; apply HR.
       + destruct R2; etransitivity; eauto.
     - intros R1 R2 Hleq1 x y Hleq2.
-      apply rt_step; exists x, y; destruct func as [Hid _]; split.
-      rewrite Hid; reflexivity. split. rewrite Hid; reflexivity.
-      apply Hleq1; auto.
+      apply rt_step; exists x, y; split.
+      reflexivity. split. reflexivity. apply Hleq1; auto.
   Qed.
   Next Obligation.
     split.
@@ -536,10 +649,8 @@ Section preorderFunctor.
       induction Hclos; intros.
       + destruct H2 as (x1 & x2 & ? & ? & ?).
         apply rt_step. exists (fmap f @@ x1), (fmap f @@ x2).
-        destruct func as [_ Hcomp]; split; simpl.
-        rewrite Hcomp in H2; auto. split.
-        rewrite Hcomp in H3; auto. apply rt_step.
-        exists x1, x2. split. reflexivity.
+        split; simpl; auto. split; auto.
+        apply rt_step; exists x1, x2. split. reflexivity.
         split. reflexivity. apply Hleq; auto.
       + apply rt_refl; auto.
       + eapply rt_trans; eauto.
@@ -550,8 +661,8 @@ Section preorderFunctor.
         induction Hclos; intros.
         * destruct H2 as (x1 & x2 & H2 & H5 & H6).
           rewrite <- H2 in H3; rewrite <- H5 in H4.
-          apply rt_step; exists x1, x2; destruct func as [_ Hcomp].
-          rewrite Hcomp; split; auto. split; auto. apply Hleq1; auto.
+          apply rt_step; exists x1, x2.
+          split; auto. split; auto. apply Hleq1; auto.
         * rewrite H2 in H3; rewrite H3 in H4; apply rt_refl; auto.
         * eapply rt_trans. apply IHHclos1; auto. reflexivity.
           apply IHHclos2; auto. reflexivity.
@@ -559,7 +670,6 @@ Section preorderFunctor.
       + eapply rt_trans; eauto.
   Qed.
 
-  (* TODO: should this use the unfoldTypeF of the functor F? *)
   Global Instance PreOrderUnfoldTypeF : UnfoldTypeF PreOrderF :=
     fun f _ _ => PChain (typeSequenceMap f PreOrderF).
   Global Instance PreOrderUnfoldOTypeF :
@@ -578,11 +688,127 @@ Class PER {A} `{OType A} (R : relation A) : Prop :=
   ; Transitive_PER :> Transitive R }.
 
 
+(* (** The PER functor. *) *)
+(* Section perFunctor. *)
+(*   Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}. *)
+
+(*   Definition PERF : TypeF := fun X oX => {R : relation (F _ _) | PER R}. *)
+
+(*   Global Instance PEROTypeF : OTypeF PERF := fun _ _ => _. *)
+
+(*   Global Instance Proper_clos_trans {A} `{OType A} {R : relation A} : *)
+(*     Proper (oeq ==> oeq ==> oleq) R -> *)
+(*     Proper (oeq ==> oeq ==> oleq) (clos_trans R). *)
+(*   Proof. *)
+(*     intros Hprop x y Heq1 z w Heq2 Hclos. *)
+(*     revert y w Heq1 Heq2. *)
+(*     induction Hclos; intros. *)
+(*     - apply t_step. rewrite <- Heq1. rewrite <- Heq2. auto. *)
+(*     - apply t_trans with y. apply IHHclos1; auto; reflexivity. *)
+(*       apply IHHclos2; auto; reflexivity. *)
+(*   Qed. *)
+
+(*   Instance Symmetric_clos_trans A (R : relation A) : *)
+(*     Symmetric R -> *)
+(*     Symmetric (clos_trans R). *)
+(*   Proof. *)
+(*     intros Hsym x y Hclos; induction Hclos. *)
+(*     - apply t_step. apply Hsym; auto. *)
+(*     - eapply t_trans; eauto. *)
+(*   Qed. *)
+
+(*   Instance Symmetric_fmapRel A B `{OType A} `{OType B} (f : A -o> B) (R : relation A) : *)
+(*     Symmetric R -> *)
+(*     Symmetric (fmapRel f R). *)
+(*   Proof. *)
+(*     intros Hsym x y (x1 & x2 & ? & ? & ?). *)
+(*     exists x2, x1. split; auto. *)
+(*   Qed. *)
+
+(*   Program Definition fmapPER {A B} `{OType A} `{OType B} (f : A -o> B) *)
+(*           (R : PERF A _) : PERF B _ := *)
+(*     clos_trans (fmapRel (fmap f) (proj1_sig R)). *)
+(*   Next Obligation. *)
+(*     constructor. *)
+(*     - apply Proper_clos_trans. apply Proper_fmapRel. *)
+(*       destruct R; auto. simpl. destruct p; auto. *)
+(*     - apply Symmetric_clos_trans. *)
+(*       apply Symmetric_fmapRel. *)
+(*       destruct R, p; auto. *)
+(*     - intros ?; eapply t_trans; eauto. *)
+(*   Qed. *)
+
+(*   Global Program Instance PERFMap : FMap PERF := *)
+(*     fun _ _ _ _ => fun f => {| ofun_app := fun r => fmapPER f r |}. *)
+(*   Next Obligation. *)
+(*     intros R1 R2 Hleq1 x y Hclos. simpl in *. *)
+(*     induction Hclos. *)
+(*     - apply t_step. *)
+(*       destruct H3 as (x1 & x2 & ? & ? & ?). *)
+(*       exists x1, x2. split; auto. split; auto. *)
+(*       apply Hleq1; auto. *)
+(*     - eapply t_trans; eauto. *)
+(*   Qed. *)
+
+(*   (* This is mostly a copy of the preorder functor proof. There's *)
+(*      probably a way to factor out the common parts but it's much *)
+(*      easier to just do this. *) *)
+(*   Global Program Instance PERFunctor : Functor PERF. *)
+(*   Next Obligation. *)
+(*     split. *)
+(*     - intros R1 R2 Hleq x y Hclos. *)
+(*       induction Hclos. *)
+(*       + destruct H as (x1 & x2 & ? & ? & ?). *)
+(*         destruct func as [Hid _]. *)
+(*         rewrite Hid in H; rewrite Hid in H0. *)
+(*         apply Hleq; destruct R1; rewrite <- H, <- H0; auto. *)
+(*       + destruct R2; etransitivity; eauto. *)
+(*     - intros R1 R2 Hleq1 x y Hleq2. *)
+(*       apply t_step; exists x, y; destruct func as [Hid _]; split. *)
+(*       rewrite Hid; reflexivity. split. rewrite Hid; reflexivity. *)
+(*       apply Hleq1; auto. *)
+(*   Qed. *)
+(*   Next Obligation. *)
+(*     split. *)
+(*     - intros R1 R2 Hleq x y Hclos; simpl in *. *)
+(*       revert R2 Hleq. *)
+(*       induction Hclos; intros. *)
+(*       + destruct H2 as (x1 & x2 & ? & ? & ?). *)
+(*         apply t_step. exists (fmap f @@ x1), (fmap f @@ x2). *)
+(*         destruct func as [_ Hcomp]; split; simpl. *)
+(*         rewrite Hcomp in H2; auto. split. *)
+(*         rewrite Hcomp in H3; auto. apply t_step. *)
+(*         exists x1, x2. split. reflexivity. *)
+(*         split. reflexivity. apply Hleq; auto. *)
+(*       + eapply t_trans; eauto. *)
+(*     - intros R1 R2 Hleq1 x y Hclos; simpl in *. *)
+(*       revert R2 Hleq1; induction Hclos; intros. *)
+(*       + destruct H2 as (x1 & x2 & H2 & H3 & Hclos). *)
+(*         revert x y H2 H3. *)
+(*         induction Hclos; intros. *)
+(*         * destruct H2 as (x1 & x2 & H2 & H5 & H6). *)
+(*           rewrite <- H2 in H3; rewrite <- H5 in H4. *)
+(*           apply t_step; exists x1, x2; destruct func as [_ Hcomp]. *)
+(*           rewrite Hcomp; split; auto. split; auto. apply Hleq1; auto. *)
+(*         * eapply t_trans. apply IHHclos1; auto. reflexivity. *)
+(*           apply IHHclos2; auto. reflexivity. *)
+(*       + eapply t_trans; eauto. *)
+(*   Qed. *)
+
+(*   (* TODO: should this use the unfoldTypeF of the functor F? *) *)
+(*   Global Instance PERUnfoldTypeF : UnfoldTypeF PERF := *)
+(*     fun f _ _ => PChain (typeSequenceMap f PERF). *)
+(*   Global Instance PERUnfoldOTypeF : UnfoldOTypeF PERF := fun _ _ _ => _. *)
+(*   Global Program Instance PERUnfoldF : UnfoldF PERF := fun _ _ _ => id_ofun. *)
+(*   Global Program Instance PERFoldF : FoldF PERF := fun _ _ _ => id_ofun. *)
+(*   Global Instance PERContinuousFunctor : ContinuousFunctor PERF. *)
+(*   Proof. constructor; intros; apply id_compose_ofun. Qed. *)
+(* End perFunctor. *)
+
+
 (** The PER functor. *)
 Section perFunctor.
-  Context F {oF : OTypeF F} {fm : FMap F} {func : Functor F}.
-
-  Definition PERF : TypeF := fun X oX => {R : relation (F _ _) | PER R}.
+  Definition PERF : TypeF := fun X oX => {R : relation X | PER R}.
 
   Global Instance PEROTypeF : OTypeF PERF := fun _ _ => _.
 
@@ -649,13 +875,11 @@ Section perFunctor.
     - intros R1 R2 Hleq x y Hclos.
       induction Hclos.
       + destruct H as (x1 & x2 & ? & ? & ?).
-        destruct func as [Hid _].
-        rewrite Hid in H; rewrite Hid in H0.
         apply Hleq; destruct R1; rewrite <- H, <- H0; auto.
       + destruct R2; etransitivity; eauto.
     - intros R1 R2 Hleq1 x y Hleq2.
-      apply t_step; exists x, y; destruct func as [Hid _]; split.
-      rewrite Hid; reflexivity. split. rewrite Hid; reflexivity.
+      apply t_step; exists x, y; split.
+      reflexivity. split. reflexivity.
       apply Hleq1; auto.
   Qed.
   Next Obligation.
@@ -665,9 +889,8 @@ Section perFunctor.
       induction Hclos; intros.
       + destruct H2 as (x1 & x2 & ? & ? & ?).
         apply t_step. exists (fmap f @@ x1), (fmap f @@ x2).
-        destruct func as [_ Hcomp]; split; simpl.
-        rewrite Hcomp in H2; auto. split.
-        rewrite Hcomp in H3; auto. apply t_step.
+        split;  auto.
+        split; auto. apply t_step.
         exists x1, x2. split. reflexivity.
         split. reflexivity. apply Hleq; auto.
       + eapply t_trans; eauto.
@@ -678,14 +901,13 @@ Section perFunctor.
         induction Hclos; intros.
         * destruct H2 as (x1 & x2 & H2 & H5 & H6).
           rewrite <- H2 in H3; rewrite <- H5 in H4.
-          apply t_step; exists x1, x2; destruct func as [_ Hcomp].
-          rewrite Hcomp; split; auto. split; auto. apply Hleq1; auto.
+          apply t_step; exists x1, x2.
+          split; auto. split; auto. apply Hleq1; auto.
         * eapply t_trans. apply IHHclos1; auto. reflexivity.
           apply IHHclos2; auto. reflexivity.
       + eapply t_trans; eauto.
   Qed.
 
-  (* TODO: should this use the unfoldTypeF of the functor F? *)
   Global Instance PERUnfoldTypeF : UnfoldTypeF PERF :=
     fun f _ _ => PChain (typeSequenceMap f PERF).
   Global Instance PERUnfoldOTypeF : UnfoldOTypeF PERF := fun _ _ _ => _.
@@ -1279,28 +1501,69 @@ Section treeFunctor.
 End treeFunctor.
 
 
-(** The recursive type for memory stores. TODO *)
+Section foldUnfoldComposition.
+  Context F `{ContinuousFunctor F}.
+
+  Definition unfoldCompose : PChain (type_n F) -o> unfoldTypeF (type_n F) :=
+    unfoldF (type_n F) ∘ functorUnfold F.
+
+  Definition foldCompose : unfoldTypeF (type_n F) -o> PChain (type_n F) :=
+    functorFold F ∘ foldF (type_n F).
+
+  Lemma unfoldCompose_foldCompose :
+    unfoldCompose ∘ foldCompose =o= id_ofun.
+  Proof.
+    unfold unfoldCompose, foldCompose.
+    rewrite compose_ofun_assoc_4.
+    rewrite functor_unfold_fold.
+    rewrite id_compose_ofun.
+    destruct H0. auto.
+  Qed.
+
+  Lemma foldCompose_unfoldCompose :
+    foldCompose ∘ unfoldCompose =o= id_ofun.
+  Proof.
+    unfold unfoldCompose, foldCompose.
+    rewrite compose_ofun_assoc_4.
+    destruct H0. auto.
+    rewrite fold_unfold_id0.
+    rewrite id_compose_ofun.
+    apply functor_fold_unfold.
+  Qed.
+End foldUnfoldComposition.
+
+Notation "'ϕ'" := unfoldCompose (at level 65) : mem_scope.
+Notation "'ψ'" := foldCompose (at level 65) : mem_scope.
+Notation "a '×' b" := (ProductF a b) (at level 65) : mem_scope.
+Notation "'|' x '|'" := (ConstantF x) (at level 65) : mem_scope.
+Notation "'ϒ' x" := (TreeF x) (at level 65) : mem_scope.
+
+Open Scope mem_scope.
+
+(** The recursive type for memory stores. *)
 Section mem.
   Context Z `{OType Z}.
 
   Definition memF : TypeF :=
-    ProductF
-      (ConstantF Z)
-      (TreeF (ProductF (PERF IdentityF) (PreOrderF IdentityF))).
+    |Z| × ϒ (PERF × PreOrderF).
 
   Definition MemDiag : nat -> Type := type_n memF.
   Definition Mem := PChain (type_n memF).
 
-  Definition MemPERDiag := typeSequenceMap MemDiag (PERF IdentityF).
+  Definition MemPERDiag := typeSequenceMap MemDiag PERF.
   Definition MemPER := PChain MemPERDiag.
 
-  Definition MemPreOrderDiag := typeSequenceMap MemDiag (PreOrderF IdentityF).
+  Definition MemPreOrderDiag := typeSequenceMap MemDiag PreOrderF.
   Definition MemPreOrder := PChain MemPreOrderDiag.
 
-  Definition asdf := @unfoldF memF _ _ _ _ _ _ MemDiag _ _.
-  Check asdf.
-
-  (* Definition sanityCheck : Mem -o> prod Z (Tree (prod MemPER MemPreOrder)) := asdf. *)
-
-  
+  (* These are a bit slow to typecheck... *)
+  (* But at least they verify that the UnfoldF instance generated by
+     typeclass resolution is the type we expect:
+     Z × Tree (MemPER × MemPreOrder) *)
+  Definition sanityCheck
+    : Mem -o> Z * Tree (MemPER * MemPreOrder) :=
+    ϕ memF.
+  Definition sanityCheck'
+    : Z * Tree (MemPER * MemPreOrder) -o> Mem :=
+    ψ memF.
 End mem.
