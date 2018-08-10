@@ -1,0 +1,85 @@
+
+PChain.v - defines PDiagrams (chains of types) and PChains (chains of
+elements wrt a PDiagram). There is a product construction for PChains
+with two proper morphisms (isomorphism) for zipping and unzipping.
+
+There's an operation for mapping a "natural transformation" over a
+PChain, where the naturality condition need only be satisfied in the
+case of proj.
+
+
+Functor.v - defines functors on ordered types and an operation for
+mapping such a functor over a PDiagram.
+
+It also defines continuous functors, which provide an "unfold type"
+constructor in addition to the regular type constructor. They also
+provide fold and unfold morphisms between PChains and their unfold
+type.
+
+There is a construction for diagrams produced by iterated application
+of a functor (not necessarily continuous).
+
+The constant, identity, product, PER and preorder functor instances
+are defined at the end of the file. The preorder and PER continuous
+functors are somewhat degenerate because their fold and unfold
+morphisms are simply the identity function. The only missing functor
+instance is Tree, which is defined in Tree.v.
+
+
+Tree.v - contains the plain old inductive type for trees and a bunch
+of operations, lemmas, instances, etc for them.
+
+It then defines the functor and continuous functor instances for trees
+using the tree inductive type.
+
+
+Memory.v - defines the permission and memory types, and some
+operations for building memory values (not finished).
+
+
+Current status:
+
+There's a problem when defining the operation to build a chain of
+relations from a single relation on F ⊥.
+
+We use contramap proj to embed the relation upward in the chain. Two
+elements in G (S n) are related if their projections are related in G
+n. Then, for the result to be a valid PCHain, we need to show that
+each element in the chain is equivalent to the projection of its
+successor, where the projection is defined using fmap. Equivalence in
+this case is bi-implication since they are relations. In one of the
+directions, we must show the existence of two elements in G (S n)
+given two elements in G n.
+
+If we had embed functions we could just embed the elements upward and
+finish the prove by making use of the [proj ∘ embed = id] property. I
+was worried at first that we need embed functions after all, and thus
+pointed types (although maybe that would be OK?), but then I realized
+that we don't need the other property [embed ∘ proj ≤ id].
+
+So, instead of having embed functions, we can just have a sort of
+"choice" function from unit to F unit that selects an element. It
+doesn't actually need to be a bottom element, so this is basically
+just a requirement that F unit is inhabited. [embed ∘ proj = id] holds
+trivially, which is all we need.
+
+The admits in Memory.v should be provable given these sort of
+pseudo-embed / choice functions. I started updating everything to
+include them (in PChainEmbed.v and FunctorEmbed.v), but an annoying
+problem came up that prevents unification of PChain types, which
+prevents the use of the nice proper function combinators. It first
+arises when trying to use id_ofun in the identity functor UnfoldF
+definition.
+
+I think I understand the problem but I'm not sure of a nice way to
+solve it. When PDiagram is just a chain of projection functions,
+mapping id over it results in a definitionally equal term due to the
+eta reduction rule. But when there are records involved (bundling
+embed and proj functions, even without the proof), mapping id over the
+fields of a record results in a term that isn't quite definitionally
+equal. You can prove that they are equal by induction (destructing the
+original record). This is my current understanding anyway.. not sure
+that it's completely right.
+
+
+- Alex
