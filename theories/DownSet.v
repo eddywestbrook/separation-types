@@ -13,10 +13,10 @@ Instance OTypeF_DownSet : OTypeF DownSet := fun _ _ => _.
 
 (* The Monad operations for downward-closed sets *)
 Instance MonadOps_DownSet : MonadOps DownSet :=
-  {| returnM :=
+  {| return_ofun :=
        fun A _ =>
          oexpr (ofun (x:A) => ofun (y:Flip A) => oappr @o@ ovar y @o@ ovar x);
-     bindM :=
+     bind_ofun :=
        fun A B _ _ =>
          oexpr (ofun m => ofun f => ofun (y:Flip B) =>
                 oexists2 @o@ (ofun x => ovar f @o@ ovar x @o@ ovar y) @o@ ovar m)
@@ -93,7 +93,7 @@ Qed.
  ***)
 
 Instance MonadBottomOps_DownSet : MonadBottomOps DownSet :=
-  {| bottomM := fun _ _ => oexpr oempty |}.
+  {| bottom_ofun := fun _ _ => oexpr oempty |}.
 
 Instance MonadBottom_DownSet : MonadBottom DownSet.
 Proof.
@@ -113,7 +113,8 @@ Definition fixDownSet {A B} `{OType A} `{OType B} :
                         @o@ (ounequiv (ovar g) @o@ ovar a @o@ ovar b)
     )).
 
-Instance MonadFixOps_DownSet : MonadFixOps DownSet := {| fixM := @fixDownSet |}.
+Instance MonadFixOps_DownSet : MonadFixOps DownSet :=
+  {| fix_ofun := @fixDownSet |}.
 
 Instance MonadFix_DownSet : MonadFix DownSet.
 Admitted.

@@ -127,6 +127,7 @@ Proof.
   intros a1 a2 Ra c1 c2 Rc. simpl. assumption.
 Qed.
 
+
 (* Helper function to build lambdas *)
 (*
 Definition mkLam {ctx A B} `{OType A} `{OType B}
@@ -178,6 +179,11 @@ Instance ExtendsToRefl ctx : ExtendsTo ctx ctx := ExtendsRefl.
 Instance ExtendsToCons {ctx1 ctx2} (ext: ExtendsTo ctx1 ctx2) A `{OType A} :
   ExtendsTo ctx1 (ctx2 :> A) :=
   ExtendsCons ext A.
+
+(* This is for use with oconst_oexpr, below *)
+Instance ExtendsTo_CNil ctx : ExtendsTo CNil ctx | 10.
+Proof. induction ctx; typeclasses eauto. Defined.
+Typeclasses Transparent ExtendsTo_CNil.
 
 (* Weaken a context by mapping backwards from the weaker to the stronger one *)
 Fixpoint weakenContext {ctx1 ctx2} (ext: extendsTo ctx1 ctx2) :
@@ -553,7 +559,18 @@ Proof.
   { apply compose_pair_snd. }
 Qed.
 
+(* Perform a beta reduction using the above substitution type classes *)
 Ltac obeta := rewrite ofunBeta; [ | typeclasses eauto ].
+
+(* Lemma for unfolding a constant *)
+Lemma oconst_oexpr {ctx A} `{OType A} (e: OExpr CNil A) res
+      {ext: ExtendsTo CNil ctx}
+      {w: WeakensTo e (PreExtendsToBase ext) res} :
+  oconst (oexpr e) =o= res.
+  unfold WeakensTo in w. rewrite <- w.
+  unfold oexpr. apply funOExt; intro celem. simpl.
+  f_equiv. split; apply I.
+Qed.
 
 
 (***
@@ -574,11 +591,11 @@ Qed.
  *** Ordered Expressions for Unit
  ***)
 
-Definition ott {ctx} : OExpr ctx unit := oconst tt.
+Notation ott := (oconst tt).
 
 Lemma ott_terminal {ctx} (e: OExpr ctx unit) : e =o= ott.
 Proof.
-  apply funOExt; intro c. destruct (e @@ c). reflexivity.
+  apply funOExt; intro c. split; apply I.
 Qed.
 
 
@@ -586,12 +603,18 @@ Qed.
  *** Ordered Expressions for Pairs
  ***)
 
+Notation opair := (oconst (ofun_curry id_ofun)).
+Notation ofst := (oconst fst_ofun).
+Notation osnd := (oconst snd_ofun).
+
+(*
 Definition opair {ctx A B} `{OType A} `{OType B} : OExpr ctx (A -o> B -o> A*B) :=
   oconst (ofun_curry id_ofun).
 Definition ofst {ctx A B} `{OType A} `{OType B} : OExpr ctx (A * B -o> A) :=
   oconst fst_ofun.
 Definition osnd {ctx A B} `{OType A} `{OType B} : OExpr ctx (A * B -o> B) :=
   oconst snd_ofun.
+ *)
 
 Notation "( x ,o, y )" := (opair @o@ x @o@ y : OExpr _ _) (at level 0).
 
@@ -620,6 +643,11 @@ Qed.
  *** Ordered Expressions for Sums
  ***)
 
+Notation oinl := (oconst inl_ofun).
+Notation oinr := (oconst inr_ofun).
+Notation osumElim := (oconst sum_elim_ofun).
+
+(*
 Definition oinl {ctx A B} `{OType A} `{OType B} : OExpr ctx (A -o> A + B) :=
   oconst inl_ofun.
 Definition oinr {ctx A B} `{OType A} `{OType B} : OExpr ctx (B -o> A + B) :=
@@ -627,6 +655,7 @@ Definition oinr {ctx A B} `{OType A} `{OType B} : OExpr ctx (B -o> A + B) :=
 Definition osumElim {ctx A B C} `{OType A} `{OType B} `{OType C} :
   OExpr ctx ((A -o> C) -o> (B -o> C) -o> A + B -o> C) :=
   oconst sum_elim_ofun.
+*)
 
 Lemma osumElim_oinl {ctx A B C} `{OType A} `{OType B} `{OType C}
       (f1 : OExpr ctx (A -o> C)) (f2 : OExpr ctx (B -o> C)) e :
@@ -647,6 +676,19 @@ Qed.
  *** Ordered Expressions for Propositions
  ***)
 
+Notation oTrue := (oconst True).
+Notation oFalse := (oconst False).
+
+Notation oforall := (oconst forall_ofun).
+Notation oexists := (oconst exists_ofun).
+Notation oexists2 := (oconst exists2flip_ofun).
+
+Notation oand := (oconst and_ofun).
+Notation oor := (oconst or_ofun).
+Notation oimpl := (oconst impl_ofun).
+Notation oappr := (oconst oleq_ofun).
+
+(*
 Definition oTrue {ctx} : OExpr ctx Prop := oconst True.
 Definition oFalse {ctx} : OExpr ctx Prop := oconst False.
 
@@ -666,7 +708,7 @@ Definition oimpl {ctx} : OExpr ctx (Flip Prop -o> Prop -o> Prop) :=
   oconst impl_ofun.
 Definition oappr {ctx A} `{OType A} : OExpr ctx (Flip A -o> A -o> Prop) :=
   oconst oleq_ofun.
-
+*)
 
 Lemma oor_leq1 {ctx} (P Q: OExpr ctx Prop) : P <o= oor @o@ P @o@ Q.
 Proof.

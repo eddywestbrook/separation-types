@@ -5,13 +5,15 @@ Require Export SepTypes.Monad.
  ***)
 
 Class MonadFixOps M `{OTypeF M} : Type :=
-  { fixM : forall {A B} `{OType A} `{OType B},
+  { fix_ofun : forall {A B} `{OType A} `{OType B},
       ((A -o> M B _) -o> (A -o> M B _)) -o> (A -o> M B _); }.
 
+Notation ofix := (oconst fix_ofun).
+(*
 Definition ofix {ctx} `{MonadFixOps} {A B} `{OType A} `{OType B} :
   OExpr ctx (((A -o> M B _) -o> (A -o> M B _)) -o> (A -o> M B _)) :=
-  oconst fixM.
-
+  oconst fix_ofun.
+*)
 
 Class MonadFix M {OF:OTypeF M} `{@MonadOps M OF} `{@MonadFixOps M OF} : Prop :=
   { Monad_MonadFix :> Monad M;
@@ -22,10 +24,13 @@ Class MonadFix M {OF:OTypeF M} `{@MonadOps M OF} `{@MonadFixOps M OF} : Prop :=
   }.
 
 Class MonadBottomOps M `{OTypeF M} : Type :=
-  { bottomM : forall {A} `{OType A}, M A _ }.
+  { bottom_ofun : forall {A} `{OType A}, M A _ }.
 
+Notation obottom := (oconst bottom_ofun).
+(*
 Definition obottom {ctx} `{MonadBottomOps} {A} `{OType A} : OExpr ctx (M A _) :=
-  oconst bottomM.
+  oconst bottom_ofun.
+*)
 
 Class MonadBottom M {OF:OTypeF M} `{@MonadOps M OF}
       `{@MonadBottomOps M OF} : Prop :=

@@ -69,9 +69,11 @@ Definition traceNonTerm_ofun {St A} `{OType St} `{OType A}
   : St -o> trace St A :=
   {| ofun_app := Trace_NonTerm |}.
 
+Notation otraceNonTerm := (oconst traceNonTerm_ofun).
+(*
 Definition otraceNonTerm {ctx St A} `{OType St} `{OType A} :
   OExpr ctx (St -o> trace St A) := oconst traceNonTerm_ofun.
-
+*)
 
 Program Definition traceTerm_ofun {St A} `{OType St} `{OType A} :
   St -o> A -o> trace St A :=
@@ -79,8 +81,11 @@ Program Definition traceTerm_ofun {St A} `{OType St} `{OType A} :
 Next Obligation. apply Proper_Trace_Term; reflexivity. Defined.
 Next Obligation. apply Proper_Trace_Term; reflexivity. Defined.
 
+Notation otraceTerm := (oconst traceTerm_ofun).
+(*
 Definition otraceTerm {ctx St A} `{OType St} `{OType A} :
   OExpr ctx (St -o> A -o> trace St A) := oconst traceTerm_ofun.
+*)
 
 
 Program Definition traceStep_ofun {St A} `{OType St} `{OType A} :
@@ -89,8 +94,11 @@ Program Definition traceStep_ofun {St A} `{OType St} `{OType A} :
 Next Obligation. apply Proper_Trace_Step; reflexivity. Defined.
 Next Obligation. apply Proper_Trace_Step; reflexivity. Defined.
 
+Notation otraceStep := (oconst traceStep_ofun).
+(*
 Definition otraceStep {ctx St A} `{OType St} `{OType A} :
   OExpr ctx (St -o> trace St A -o> trace St A) := oconst traceStep_ofun.
+*)
 
 
 (* Construct the trace that extends tr with (f fin) if tr terminates in state
@@ -119,9 +127,12 @@ Program Definition traceBind_ofun {St A B} `{OType St} `{OType A} `{OType B} :
 Next Obligation. apply Proper_trace_bind; reflexivity. Defined.
 Next Obligation. apply Proper_trace_bind; reflexivity. Defined.
 
+Notation otraceBind := (oconst traceBind_ofun).
+(*
 Definition otraceBind {ctx St A B} `{OType St} `{OType A} `{OType B} :
   OExpr ctx (trace St A -o> (A -o> St -o> trace St B) -o> trace St B) :=
   oconst traceBind_ofun.
+*)
 
 (* Construct the set of all traces that extend tr with a trace in (f fin) if tr
 terminates in state fin *)
@@ -159,10 +170,13 @@ Definition traceBindM_ofun {St A B} `{OType St} `{OType A} `{OType B} :
   trace St A -o> (A -o> St -o> DownSet (trace St B)) -o> DownSet (trace St B) :=
   {| ofun_app := trace_bindM |}.
 
+Notation otraceBindM := (oconst traceBindM_ofun).
+(*
 Definition otraceBindM {ctx St A B} `{OType St} `{OType A} `{OType B} :
   OExpr ctx (trace St A -o> (A -o> St -o> DownSet (trace St B)) -o>
              DownSet (trace St B)) :=
   oconst traceBindM_ofun.
+*)
 
 (* FIXME: laws for otraceBind, otraceTerm, and otraceStep *)
 
@@ -178,59 +192,32 @@ Definition TraceM St `{OType St} A `{OType A} := St -o> DownSet (trace St A).
 Instance OTypeF_TraceM St `{OType St} : OTypeF (TraceM St) := fun _ _ => _.
 
 Instance MonadOps_TraceM St `{OType St} : MonadOps (TraceM St) :=
-  {| returnM :=
+  {| return_ofun :=
        fun _ _ =>
          oexpr (ofun x => ofun st =>
                 oreturn @o@ (otraceTerm @o@ ovar st @o@ ovar x));
-     bindM :=
+     bind_ofun :=
        fun _ _ _ _ =>
          oexpr (ofun m => ofun f => ofun st =>
                 obind @o@ (ovar m @o@ ovar st) @o@
                       (ofun tr => otraceBindM @o@ ovar tr @o@ ovar f))
  |}.
 
-
-(* FIXME HERE: move this to OExpr! *)
-Instance ExtendsTo_CNil ctx : ExtendsTo CNil ctx | 10.
-Proof. induction ctx; typeclasses eauto. Defined.
-Typeclasses Transparent ExtendsTo_CNil.
-
-(* FIXME HERE: move this to OExpr! *)
-Lemma oconst_oexpr {ctx A} `{OType A} (e: OExpr CNil A) res
-      {ext: ExtendsTo CNil ctx}
-      {w: WeakensTo e (PreExtendsToBase ext) res} :
-  oconst (oexpr e) =o= res.
-  unfold WeakensTo in w. rewrite <- w.
-  unfold oexpr. apply funOExt; intro celem. simpl.
-  rewrite ott_terminal. reflexivity.
-Qed.
-
-Lemma monad_returnM_bindM {ctx A B} `{OType A} `{OType B} {M} `{Monad M}
-      (f: OExpr ctx (A -o> M B _)) x :
-  oconst bindM @o@ (oconst returnM @o@ x) @o@ f =o= f @o@ x.
-apply monad_return_bind.
-Qed.
-
-Lemma monad_bindM_returnM {ctx A} `{OType A} {M} `{Monad M} (m: OExpr ctx (M A _)) :
-  oconst bindM @o@ m @o@ oconst returnM =o= m.
-apply monad_bind_return.
-Qed.
-
 Instance Monad_TraceM St `{OType St} : Monad (TraceM St).
 Proof.
   constructor; intros; apply ofunExt; intro.
-  { unfold obind, oreturn, bindM, returnM, MonadOps_TraceM.
+  { unfold bind_ofun, return_ofun, MonadOps_TraceM.
     rewrite oconst_oexpr; [ | typeclasses eauto ].
     obeta. obeta. obeta.
     rewrite oconst_oexpr; [ | typeclasses eauto ]. obeta. obeta.
-    rewrite monad_returnM_bindM. obeta.
+    rewrite monad_return_bind. obeta.
     apply funOExt; intro celem. reflexivity. }
-  { unfold obind, oreturn, bindM, returnM, MonadOps_TraceM.
+  { unfold bind_ofun, return_ofun, MonadOps_TraceM.
     rewrite oconst_oexpr; [ | typeclasses eauto ].
     rewrite oconst_oexpr; [ | typeclasses eauto ].
     obeta. obeta. obeta.
-    transitivity (oconst bindM @o@ (m @o@ arg) @o@ oconst returnM);
-      [ | rewrite monad_bindM_returnM; reflexivity ].
+    transitivity (obind @o@ (m @o@ arg) @o@ oreturn);
+      [ | rewrite monad_bind_return; reflexivity ].
     f_equiv. apply ofunExt; intro. obeta.
     admit. (* FIXME: need to prove properties of trace_bindM *)
   }

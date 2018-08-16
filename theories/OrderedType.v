@@ -142,13 +142,18 @@ Proof.
   repeat constructor.
 Defined.
 
+(* The complete order on unit is the same as the discrete one, but easier to
+prove things about... *)
+Instance OTunit : OType unit := {| oleq := fun _ _ => True |}.
+Proof.
+  repeat constructor.
+Defined.
+(* Instance OTunit : OType unit := OTdiscrete unit. *)
+
 (* The discrete ordered type, where things are only related to themselves; we
 make this a definition, not an instance, so that it can be instantiated for
 particular types. *)
 Definition OTdiscrete A : OType A := {| oleq := eq |}.
-
-(* The only ordered type over unit is the discrete one *)
-Instance OTunit : OType unit := OTdiscrete unit.
 
 (* The ordered type that flips the ordering of an underlying OType; this becomes
 a type itself in Coq *)

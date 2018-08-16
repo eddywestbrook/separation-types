@@ -7,15 +7,19 @@ Require Export SepTypes.OExpr.
  ***)
 
 Class MonadOps M `{OTypeF M} : Type :=
-  { returnM : forall {A} `{OType A}, A -o> M A _;
-    bindM : forall {A B} `{OType A} `{OType B},
+  { return_ofun : forall {A} `{OType A}, A -o> M A _;
+    bind_ofun : forall {A B} `{OType A} `{OType B},
         M A _ -o> (A -o> M B _) -o> M B _ }.
 
+Notation oreturn := (oconst return_ofun).
+Notation obind := (oconst bind_ofun).
+(*
 Definition oreturn {ctx} `{MonadOps} {A} `{OType A} : OExpr ctx (A -o> M A _) :=
-  oconst returnM.
+  oconst return_ofun.
 Definition obind {ctx} `{MonadOps} {A B} `{OType A} `{OType B} :
   OExpr ctx (M A _ -o> (A -o> M B _) -o> M B _) :=
-  oconst bindM.
+  oconst bind_ofun.
+*)
 Notation "'do' x <- m1 ; m2" :=
   (obind @o@ m1 @o@ mkLam (fun x => m2)) (at level 60, right associativity).
 
@@ -49,9 +53,9 @@ Instance OTypeF_Identity : OTypeF Identity :=
   fun _ ot => ot.
 
 Instance IdMonad_MonadOps : MonadOps Identity :=
-  { returnM := fun A _ => oexpr (ofun x => x);
-    bindM := fun A B _ _ =>
-               oexpr (ofun m => ofun (f : A -o> B ) => ovar f @o@ ovar m) }.
+  { return_ofun := fun A _ => oexpr (ofun x => x);
+    bind_ofun := fun A B _ _ =>
+                   oexpr (ofun m => ofun (f : A -o> B ) => ovar f @o@ ovar m) }.
 
 Instance IdMonad : Monad Identity.
 Proof.
