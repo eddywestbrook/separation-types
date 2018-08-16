@@ -136,7 +136,7 @@ Definition otraceBind {ctx St A B} `{OType St} `{OType A} `{OType B} :
 
 (* Construct the set of all traces that extend tr with a trace in (f fin) if tr
 terminates in state fin *)
-Fixpoint trace_bindM {St A B} `{OType St} `{OType A} `{OType B} (tr: trace St A)
+Fixpoint trace_bindM {St A B} `{ost:OType St} `{oa:OType A} `{ob:OType B} (tr: trace St A) {struct tr}
   : (A -o> St -o> DownSet (trace St B)) -o> DownSet (trace St B) :=
   match tr with
   | Trace_NonTerm st =>
