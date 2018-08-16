@@ -21,7 +21,8 @@ Definition obind {ctx} `{MonadOps} {A B} `{OType A} `{OType B} :
   oconst bind_ofun.
 *)
 Notation "'do' x <- m1 ; m2" :=
-  (obind @o@ m1 @o@ mkLam (fun x => m2)) (at level 60, right associativity).
+  (obind @o@ m1 @o@ mkLam (fun x => m2))
+    (at level 60, m1 at level 59, right associativity).
 
 
 Class Monad M `{MonadOps M} : Prop :=
