@@ -9,3 +9,7 @@
 ./theories/TraceMonad.v
 ./theories/Lens.v
 ./theories/Functor.v
+./theories/PChain.v
+./theories/Memory.v
+./theories/Tree.v
+./theories/PChainEmbed.v

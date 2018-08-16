@@ -29,6 +29,8 @@ Next Obligation.
   intros x1 x2 Rx. apply ofun_Proper. apply ofun_Proper. assumption.
 Qed.
 
+Notation "f '∘' g" := (compose_ofun g f) (at level 65) : ofun_scope.
+
 Instance Proper_compose_ofun A B C
          `{OType A} `{OType B} `{OType C} :
   Proper (oleq ==> oleq ==> oleq) (@compose_ofun A B C _ _ _).
@@ -143,6 +145,13 @@ Lemma pair_fst_snd_eta A B `{OType A} `{OType B} :
   oeq (pair_ofun (fst_ofun (A:=A) (B:=B)) snd_ofun) id_ofun.
   split; intros p1 p2 Rp; destruct Rp; split; simpl; assumption.
 Qed.
+
+
+(* (* Take the pair of the outputs of two ofuns *) *)
+(* Program Definition pair_ofun2 {A B C D} *)
+(*         `{OType A} `{OType B} `{OType C} `{OType D} *)
+(*         (f: A -o> C) (g: B -o> D) : A*B -o> C*D := *)
+(*   pair_ofun (f ) (). *)
 
 
 (***
