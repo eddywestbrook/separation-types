@@ -218,10 +218,15 @@ Proof.
     obeta. obeta. obeta.
     transitivity (obind @o@ (m @o@ arg) @o@ oreturn);
       [ | rewrite monad_bind_return; reflexivity ].
-    f_equiv. apply ofunExt; intro. obeta.
+    f_equiv. apply ofunExt; intro tr. obeta.
     admit. (* FIXME: need to prove properties of trace_bindM *)
   }
-  {
-    admit.
+  { unfold bind_ofun, return_ofun, MonadOps_TraceM.
+    repeat (rewrite oconst_oexpr; [ | typeclasses eauto ]).
+    repeat obeta.
+    rewrite monad_assoc.
+    (* FIXME HERE: change monad_assoc to include weakening, rather than using
+    ovar in an equation *)
+    admit. (* FIXME: need to prove properties of trace_bindM *)
   }
 Admitted.
