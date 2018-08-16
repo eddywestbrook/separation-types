@@ -563,9 +563,18 @@ Qed.
 Ltac obeta := rewrite ofunBeta; [ | typeclasses eauto ].
 
 (* Lemma for unfolding a constant *)
+(*
 Lemma oconst_oexpr {ctx A} `{OType A} (e: OExpr CNil A) res
       {ext: ExtendsTo CNil ctx}
       {w: WeakensTo e (PreExtendsToBase ext) res} :
+  oconst (oexpr e) =o= res.
+  unfold WeakensTo in w. rewrite <- w.
+  unfold oexpr. apply funOExt; intro celem. simpl.
+  f_equiv. split; apply I.
+Qed.
+*)
+Lemma oconst_oexpr {ctx A} `{OType A} (e: OExpr CNil A) res
+      {w: WeakensTo e (PreExtendsToBase (ExtendsTo_CNil ctx)) res} :
   oconst (oexpr e) =o= res.
   unfold WeakensTo in w. rewrite <- w.
   unfold oexpr. apply funOExt; intro celem. simpl.
