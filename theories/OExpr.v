@@ -88,7 +88,6 @@ Coercion varSemantics : OVar >-> OExpr.
  *** Notation for Application
  ***)
 
-(* FIXME: weaken both sides to a join of their respective contexts! *)
 Definition oexpr_apply {ctx A B} `{OType A} `{OType B}
            (f: OExpr ctx (A -o> B)) (g: OExpr ctx A) : OExpr ctx B :=
   ofun_apply f g.

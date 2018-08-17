@@ -65,7 +65,6 @@ Qed.
 Program Definition const_ofun {A B} `{OType A} `{OType B} b : A -o> B :=
   {| ofun_app := fun _ => b; ofun_Proper := fun _ _ _ => ltac:(reflexivity) |}.
 
-(* FIXME: this proper-ness proof should include irrelevance of the OType arg *)
 Instance Proper_const_ofun {A B} `{OType A} `{OType B} :
   Proper (oleq ==> oleq) (const_ofun (A:=A) (B:=B)).
 Proof.
@@ -200,7 +199,12 @@ Proof.
   intros f1 f2 Rf a1 a2 Ra b1 b2 Rb. apply Rf. split; assumption.
 Qed.
 
-(* FIXME: Proper instance for ofun_uncurry *)
+(* ofun_uncurry is Proper *)
+Instance Proper_ofun_uncurry A B C `{OType A} `{OType B} `{OType C}
+  : Proper (oleq ==> oleq) (ofun_uncurry (A:=A) (B:=B) (C:=C)).
+Proof.
+  intros f1 f2 Rf [ a1 b1 ] [ a2 b2 ] [ Ra Rb ]. apply Rf; assumption.
+Qed.
 
 (* Currying and uncurrying of ofuns form an isomorphism: part 1 *)
 Lemma ofun_curry_uncurry_eq A B C `{OType A} `{OType B} `{OType C}
@@ -219,7 +223,7 @@ Lemma ofun_uncurry_curry_eq A B C `{OType A} `{OType B} `{OType C}
 Qed.
 
 
-(* The S combinator for ofuns (FIXME: do we need this?) *)
+(* The S combinator for ofuns (NOTE: not really needed...) *)
 Program Definition ofun_S {A B C} `{OType A} `{OType B} `{OType C}
   : (A -o> B -o> C) -o> (A -o> B) -o> A -o> C :=
   {| ofun_app :=
@@ -435,11 +439,11 @@ Program Definition ite_ofun {A} `{OType A} : bool -o> A -o> A -o> A :=
                 {| ofun_app :=
                      fun y => if b then x else y |} |} |}.
 Next Obligation.
-  unfold OFunProper, ProperPair; intros a1 a2 Ra.
+  intros a1 a2 Ra.
   destruct b; [ reflexivity | apply Ra ].
 Defined.
 Next Obligation.
-  unfold OFunProper, ProperPair; intros a1 a2 R12 a3 a4 R34.
+  intros a1 a2 R12 a3 a4 R34.
   destruct b; [ apply R12 | assumption ].
 Defined.
 Next Obligation.

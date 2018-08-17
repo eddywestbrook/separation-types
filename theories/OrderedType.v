@@ -48,8 +48,6 @@ Notation "x <o= y" :=
 Notation "x =o= y" :=
   (oeq x y) (no associativity, at level 70).
 
-(* FIXME: replace "oleq" below with "<o=" notation *)
-
 
 (***
  *** Some General Proper Instances
@@ -213,8 +211,8 @@ Defined.
 
 (* The sort-of pointwise relation on sum types *)
 Inductive sumR {A B} (RA:OType A) (RB:OType B) : A+B -> A+B -> Prop :=
-| sumR_inl a1 a2 : oleq a1 a2 -> sumR RA RB (inl a1) (inl a2)
-| sumR_inr b1 b2 : oleq b1 b2 -> sumR RA RB (inr b1) (inr b2).
+| sumR_inl a1 a2 : a1 <o= a2 -> sumR RA RB (inl a1) (inl a2)
+| sumR_inr b1 b2 : b1 <o= b2 -> sumR RA RB (inr b1) (inr b2).
 
 Instance OTsum A B (RA:OType A) (RB:OType B) : OType (A+B) :=
   {| oleq := sumR RA RB |}.
@@ -274,7 +272,7 @@ Notation "x @@ y" :=
 Instance OTarrow A B `{OType A} `{OType B} : OType (A -o> B) :=
   {| oleq :=
        fun f g =>
-         forall a1 a2, oleq a1 a2 -> oleq (ofun_app f a1) (ofun_app g a2) |}.
+         forall a1 a2, a1 <o= a2 -> ofun_app f a1 <o= ofun_app g a2 |}.
 Proof.
   repeat constructor; intro; intros.
   { apply ofun_Proper; assumption. }
@@ -286,7 +284,7 @@ Defined.
 (* OType instance for non-proper functions. 
    TODO: rename *)
 Instance OTarrow' A B `{OType A} `{OType B} : OType (A -> B) :=
-  {| oleq := fun f g => forall x, oleq (f x) (g x) |}.
+  {| oleq := fun f g => forall x, f x <o= g x |}.
 Proof.
   repeat constructor; intro; intros.
   { reflexivity. }
@@ -330,57 +328,6 @@ Proof.
   apply ofun_Proper.
 Qed.
 *)
-
-
-(***
- *** Building Proper Functions
- ***)
-
-Class ProperPair A `{OType A} (x y:A) : Prop :=
-  proper_pair_pf : oleq x y.
-
-Class OFunProper {A B} `{OType A} `{OType B} (f: A -> B) : Prop :=
-  ofun_proper : forall x y, ProperPair A x y -> ProperPair B (f x) (f y).
-
-Hint Extern 1 (OFunProper _) => intro; intro; intro : typeclass_instances.
-
-Definition mk_ofun {A B} `{OType A} `{OType B} (f: A -> B) {prp:OFunProper f}
-  : A -o> B :=
-  {| ofun_app := f; ofun_Proper := prp |}.
-
-(*
-Notation "'ofun' x => e" := (mk_ofun (fun x => e))
-                              (right associativity, at level 99).
-
-Notation "'ofun' ( x : A ) => e" :=
-  (mk_ofun (fun x:A => e))
-    (right associativity, at level 99, x at level 0).
-*)
-
-Instance ProperPair_refl A `{OType A} (x:A) : ProperPair A x x.
-Proof.
-  unfold ProperPair. reflexivity.
-Qed.
-
-Lemma ProperPair_ofun_app A B `{OType A} `{OType B}
-      (fl fr:A -o> B) argl argr
-      (prpf:ProperPair (A -o> B) fl fr)
-      (prpa:ProperPair A argl argr)
- : ProperPair B (ofun_app fl argl) (ofun_app fr argr).
-Proof.
-  apply prpf; assumption.
-Qed.
-
-Lemma ProperPair_ofun A B `{OType A} `{OType B} (f g:A -> B) prpl prpr
-         (pf: forall x y, ProperPair A x y -> ProperPair B (f x) (g y)) :
-  ProperPair (A -o> B) (@mk_ofun A B _ _ f prpl) (@mk_ofun A B _ _ g prpr).
-Proof.
-  intros xl xr Rx; apply pf; assumption.
-Qed.
-
-Hint Extern 2 (ProperPair _ _ _) =>
-first [ apply ProperPair_ofun_app
-      | apply ProperPair_ofun; do 3 intro ] : typeclass_instances.
 
 
 (***
