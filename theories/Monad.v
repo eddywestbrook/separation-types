@@ -35,13 +35,30 @@ Class Monad M `{MonadOps M} : Prop :=
       forall {ctx A} `{OType A} (m: OExpr ctx (M A _)),
         obind @o@ m @o@ oreturn =o= m;
 
-    monad_assoc :
+    monad_assoc_raw :
       forall {ctx A B C} `{OType A} `{OType B} `{OType C}
              m (f: OExpr ctx (A -o> M B _)) (g: OExpr ctx (B -o> M C _)),
         obind @o@ (obind @o@ m @o@ f) @o@ g
         =o=
         obind @o@ m @o@ (ofun x => obind @o@ (ovar f @o@ ovar x) @o@ ovar g);
   }.
+
+(* This version of associativity of bind is easier to use in practice, because
+it does the weakening for you *)
+Lemma monad_assoc `{Monad} {ctx A B C} `{OType A} `{OType B} `{OType C}
+      m (f: OExpr ctx (A -o> M B _)) (f': OExpr (ctx :> A) (A -o> M B _))
+      (g: OExpr ctx (B -o> M C _)) (g': OExpr (ctx :> A) (B -o> M C _))
+      {wf: WeakensTo f (PreExtendsToBase _) f'}
+      {wg: WeakensTo g (PreExtendsToBase _) g'} :
+  obind @o@ (obind @o@ m @o@ f) @o@ g
+  =o=
+  obind @o@ m @o@ (ofun x => obind @o@ (f' @o@ ovar x) @o@ g').
+Proof.
+  unfold WeakensTo in * |- *. simpl in wf; simpl in wg.
+  rewrite monad_assoc_raw. f_equiv. apply mkLamExt. f_equiv.
+  - f_equiv. rewrite <- wf. reflexivity.
+  - rewrite <- wg. reflexivity.
+Qed.
 
 
 (***
