@@ -334,7 +334,6 @@ Qed.
  *** Unary Ordered Type Functors
  ***)
 
-(* Typeclass version of OTypeF1Fun *)
 Class OTypeF (F:forall A {RA:OType A}, Type) : Type :=
   otypeF : forall A {RA:OType A}, OType (F A).
 
