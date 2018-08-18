@@ -6,6 +6,7 @@
 ./theories/Monad.v
 ./theories/MonadFix.v
 ./theories/DownSet.v
+./theories/MonadState.v
 ./theories/TraceMonad.v
 ./theories/Lens.v
 ./theories/Functor.v
