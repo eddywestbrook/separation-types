@@ -273,7 +273,7 @@ Definition substExpr {ctx1 ctx2 A} `{OType A} (e: OExpr ctx1 A)
  ***)
 
 Inductive PreExtendsTo : Ctx -> Ctx -> Type :=
-| PreExtendsToBase {ctx1 ctx2} (ext: extendsTo ctx1 ctx2) :
+| PreExtendsToBase {ctx1 ctx2} (ext: ExtendsTo ctx1 ctx2) :
     PreExtendsTo ctx1 ctx2
 | PreExtendsToCons {ctx1 ctx2} (pext: PreExtendsTo ctx1 ctx2) A `{OType A} :
     PreExtendsTo (ctx1 :> A) (ctx2 :> A)
@@ -560,6 +560,18 @@ Qed.
 
 (* Perform a beta reduction using the above substitution type classes *)
 Ltac obeta := rewrite ofunBeta; [ | typeclasses eauto ].
+
+
+Lemma oexpr_weakening {ctx1 ctx2 A} `{OType A} (e1: OExpr ctx1 A)
+      (e2: OExpr ctx2 A) {ext:ExtendsTo ctx1 ctx2}
+      {w:WeakensTo e1 (PreExtendsToBase ext) e2} :
+  ovar e1 =o= e2.
+Proof.
+  apply w.
+Qed.
+
+Ltac oweaken := rewrite oexpr_weakening; [ | typeclasses eauto ].
+
 
 (* Lemma for unfolding a constant *)
 (*
