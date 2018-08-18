@@ -5,6 +5,23 @@ Require Export SepTypes.MonadFix.
 
 
 (***
+ *** Monads that Support Execution Traces
+ ***)
+
+Class MonadTraceOps M `{OTypeF M} St `{OType St} : Type :=
+  {
+    stepsTo_ofun : forall {A} `{OType A},
+      St -o> M A _ -o> Flip St -o> Flip (M A _) -o> Prop;
+  }.
+
+Class MonadTrace M {OF:OTypeF M} {MOps: @MonadOps M OF} St {OSt:OType St}
+      {MTrOps: @MonadTraceOps M OF St OSt} : Prop :=
+  {
+    (* FIXME HERE: figure out the MonadTrace laws! *)
+  }.
+
+
+(***
  *** Execution Traces
  ***)
 
@@ -224,9 +241,27 @@ Proof.
   { unfold bind_ofun, return_ofun, MonadOps_TraceM.
     repeat (rewrite oconst_oexpr; [ | typeclasses eauto ]).
     repeat obeta.
-    rewrite monad_assoc.
+    rewrite monad_assoc; [ | typeclasses eauto | typeclasses eauto ].
+    f_equiv. apply mkLamExt.
     (* FIXME HERE: change monad_assoc to include weakening, rather than using
     ovar in an equation *)
     admit. (* FIXME: need to prove properties of trace_bindM *)
   }
 Admitted.
+
+
+(***
+ *** Transitions of Trace Monad Computations
+ ***)
+
+Definition stepsTo {A} `{OType A} {St} `{OType St} :
+  St -o> TraceM St A -o> Flip St -o> Flip (TraceM St A) -o> Prop :=
+  oexpr (ofun s1 => ofun m1 => ofun s2 => ofun m2 =>
+         oforall
+           @o@ (ofun tr =>
+                oimpl @o@ oflip (ounflip (ovar m2) @o@ ounflip (ovar s2)
+                                         @o@ ounequiv' (ovar tr))
+                      @o@ (ovar m1 @o@ ovar s1
+                                @o@ oflip (otraceStep
+                                             @o@ ounflip (ovar s2)
+                                             @o@ ounflip (ounequiv (ovar tr)))))).
