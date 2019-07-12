@@ -67,3 +67,24 @@ Next Obligation.
   rewrite <- leq_x. rewrite <- leq_y. apply in_upd. assumption.
 Defined.
 Next Obligation.
+
+
+(* FIXME HERE:
++ prove that meet_perm is a glb
++ define top and bottom perms
++ define sep_at
++ prove sep_at_anti_monotone
++ prove bottom is separate from everything (that is valid)
++ define separating conjunction
++ prove sep_conj bottom p = p
++ prove sep_conj is Proper
++ define Perms as upwards-closed sets
++ define singleton Perms as the upward closure of a single perm
++ define meet on Perms
++ prove that Perms_meet is a glb
++ Define binary meet as a special case
++ Define conjunction of Perms pointwise
++ Define the top and bottom Perms sets
++ Define entailment as the inverse of lte_Perms
++ Define impl_Perms as the adjoint (w.r.t. entailment) of conjunction
+*)
