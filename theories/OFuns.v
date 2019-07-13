@@ -14,6 +14,11 @@ Proof.
   { intro all_fg; split; intros a1 a2 Ra; rewrite Ra; apply all_fg. }
 Qed.
 
+(* Extensionality for pairs w.r.t. oeq *)
+Lemma pairOExt {A B} `{OType A} `{OType B} p : p =o= (fst p, snd p).
+Proof.
+  split; constructor; reflexivity.
+Qed.
 
 (* The identity ofun *)
 Definition id_ofun {A} `{OType A} : A -o> A :=
@@ -409,6 +414,50 @@ Lemma flipAdjEq {A} `{OType A} (x: A) (y: Flip A) :
   flip x =o= y <-> x =o= unflip y.
 Proof.
   destruct y; simpl. split; intro e; destruct e; split; assumption.
+Qed.
+
+
+(* Apply a flipped ordered function *)
+Program Definition flip_app {A B} `{OType A} `{OType B} :
+  Flip (A -o> B) -o> Flip A -o> Flip B :=
+  {| ofun_app :=
+       fun f =>
+         {| ofun_app :=
+              fun a => flip (ofun_app (unflip f) (unflip a)) |} |}.
+Next Obligation.
+  intros a1 a2 Ra. rewrite Ra. reflexivity.
+Defined.
+Next Obligation.
+  intros f1 f2 Rf a1 a2 Ra. simpl. rewrite Rf. rewrite Ra. reflexivity.
+Defined.
+
+(* Build a flipped function from a function on Flips *)
+Program Definition flip_lam {A B} `{OType A} `{OType B} :
+  (Flip A -o> Flip B) -o> Flip (A -o> B) :=
+  {| ofun_app :=
+       fun f =>
+         flip {| ofun_app :=
+                   fun a => unflip (ofun_app f (flip a)) |} |}.
+Next Obligation.
+  intros a1 a2 Ra. rewrite Ra. reflexivity.
+Defined.
+Next Obligation.
+  intros f1 f2 Rf a1 a2 Ra. simpl. rewrite Rf. rewrite Ra. reflexivity.
+Defined.
+
+(* flip_app followed by flip_lam is the identity *)
+Lemma flip_beta {A B} `{OType A} `{OType B} :
+  compose_ofun (flip_app (A:=A) (B:=B)) flip_lam =o= id_ofun.
+Proof.
+  apply funOExt; intro f. apply funOExt; intro a. simpl. reflexivity.
+Qed.
+
+(* flip_lam followed by flip_app is the identity *)
+Lemma flip_eta {A B} `{OType A} `{OType B} :
+  compose_ofun (flip_lam (A:=A) (B:=B)) flip_app =o= id_ofun.
+Proof.
+  apply funOExt; intro f. apply funOExt; intro a. simpl.
+  rewrite flip_unflip. rewrite flip_unflip. reflexivity.
 Qed.
 
 
