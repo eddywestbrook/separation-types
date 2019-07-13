@@ -15,74 +15,68 @@ Definition unitProj {A} `{OType A} : A -o> unit := const_ofun tt.
 
 
 (** Functors on ordered types. *)
-Section functor.
-  Definition TypeF :=
-    forall X, OType X -> Type.
+Definition TypeF :=
+  forall X, OType X -> Type.
 
-  Class OTypeF (F : TypeF) : Type :=
-    oTypeF :> forall X oX, OType (F X oX).
+Class OTypeF (F : TypeF) : Type :=
+  oTypeF : forall X oX, OType (F X oX).
 
-  Class FMap (F : TypeF) {oF : OTypeF F} : Type :=
-    fmap : forall {X Y oX oY}, (X -o> Y) -> F X oX -o> F Y oY.
+Ltac otype_for_otypef :=
+  match goal with
+    o : OTypeF ?f |- OType (?f _ _) => apply o
+  end.
 
-  Class Functor (F : TypeF) {oF : OTypeF F} {fm : FMap F}
-    : Prop :=
-    { fmap_id : forall A oA, fmap (@id_ofun A oA) =o= id_ofun
-    ; fmap_comp : forall A B C `{OType A} `{OType B} `{OType C}
-                    (f : A -o> B) (g : B -o> C),
-        fmap (g ∘ f) =o= fmap g ∘ fmap f }.
-End functor.
+Hint Extern 1 (OType (_ _ _)) => otype_for_otypef : typeclass_instances.
+
+Class FMap (F : TypeF) {oF : OTypeF F} : Type :=
+  fmap : forall {X Y oX oY}, (X -o> Y) -o> F X oX -o> F Y oY.
+
+Class Functor (F : TypeF) {oF : OTypeF F} {fm : FMap F}
+  : Prop :=
+  { fmap_id : forall A oA, fmap @@ (@id_ofun A oA) =o= id_ofun;
+    fmap_comp : forall A B C `{OType A} `{OType B} `{OType C}
+                       (f : A -o> B) (g : B -o> C),
+        fmap @@ (g ∘ f) =o= fmap @@ g ∘ fmap @@ f }.
 
 
 (** Mapping a functor over a diagram. Can also be thought of
     postcomposition of a functor. *)
-Section pDiagramMap.
-  Definition typeSequenceMap (f : nat -> Type) `{PDiagram f}
-             F `{func : Functor F} : nat -> Type :=
-    fun n => F (f n) _.
-  Global Instance OTypeSequenceMap (f : nat -> Type) `{PDiagram f}
-         F `{func : Functor F}
-    : OTypeSequence (typeSequenceMap f F) :=
-    fun n => oF (f n) _.
+Definition typeSequenceMap (f : nat -> Type) `{PDiagram f}
+           F `{func : Functor F} : nat -> Type :=
+  fun n => F (f n) _.
+Instance OTypeSequenceMap (f : nat -> Type) `{PDiagram f} F `{func : Functor F}
+  : OTypeSequence (typeSequenceMap f F) :=
+  fun n => oF (f n) _.
 
-  Global Program Instance PDiagramMap (f : nat -> Type) `{G : PDiagram f}
-         F `{func : Functor F}
+Program Instance PDiagramMap (f : nat -> Type) `{G : PDiagram f}
+        F `{func : Functor F}
     : PDiagram (typeSequenceMap f F) :=
-    fun n => fmap (proj n).
-End pDiagramMap.
+  {| embed := fun n => fmap @@ (embed n);
+     proj := fun n => fmap @@ (proj n) |}.
+Next Obligation.
+  unfold typeSequenceMap, OTypeSequenceMap.
+  rewrite <- fmap_comp. rewrite embed_proj_eq. apply fmap_id.
+Defined.
+Next Obligation.
+  unfold typeSequenceMap, OTypeSequenceMap.
+  rewrite <- fmap_comp. rewrite proj_embed_leq. apply fmap_id.
+Defined.
 
 
-(** A continuous functor provides fold and unfold morphisms and a
-    proof that they are an isomorphism. The type that they unfold to
-    is specified by the functor, so it isn't guaranteed to be
-    meaningful. E.g., the preorder and PER functors just use the
-    identity morphism for fold and unfold, and the proof of
-    isomorphism is trivial. *)
-Section continuousFunctor.
-  Class UnfoldTypeF (F : TypeF) : Type :=
-    unfoldTypeF : forall f `{PDiagram f}, Type.
+(** A continuous functor is one that commutes with pchains *)
+Class ContinuousFunctor F `{Functor F} : Type :=
+  { foldF : forall diag `{PDiagram diag},
+      F (PChain diag) _ -o> PChain (typeSequenceMap diag F);
+    unfoldF : forall diag `{PDiagram diag},
+        PChain (typeSequenceMap diag F) -o> F (PChain diag) _;
+    fold_unfold_id : forall diag `{PDiagram diag},
+        foldF diag ∘ unfoldF diag =o= id_ofun;
+    unfold_fold_id : forall diag `{PDiagram diag},
+        unfoldF diag ∘ foldF diag =o= id_ofun
+  }.
 
-  Class UnfoldOTypeF F {U : UnfoldTypeF F} : Type :=
-    unfoldOTypeF :> forall f `{PDiagram f}, OType (unfoldTypeF f).
 
-  Class UnfoldF F `{Functor F} {U : UnfoldTypeF F} {UO : UnfoldOTypeF F}
-    : Type :=
-    unfoldF : forall f `{PDiagram f},
-      PChain (typeSequenceMap f F) -o> unfoldTypeF f.
-
-  Class FoldF F `{Functor F} {U : UnfoldTypeF F} {UO : UnfoldOTypeF F}
-    : Type :=
-    foldF : forall f `{PDiagram f},
-      unfoldTypeF f -o> PChain (typeSequenceMap f F).
-
-  Class ContinuousFunctor F `{Functor F} {U : UnfoldTypeF F}
-        {UO : UnfoldOTypeF F} {fold : FoldF F} {unfold : UnfoldF F}
-    : Prop :=
-    { unfold_fold_id : forall f `{PDiagram f},
-        unfoldF f ∘ foldF f =o= id_ofun
-    ; fold_unfold_id : forall f `{PDiagram f},
-        foldF f ∘ unfoldF f =o= id_ofun }.  
-End continuousFunctor.
+FIXME: redo the following to work with the new approach to continuous functors
 
 
 (** Construct a diagram by iterated application of a functor. *)
@@ -109,7 +103,7 @@ Section functorPDiagram.
   Fixpoint proj_n (n : nat) : type_n (S n) -o> type_n n :=
     match n with
     | O => unitProj
-    | S n' => fmap (proj_n n')
+    | S n' => fmap @@ (proj_n n')
     end.
 
   Global Instance FunctorOTypeSequence
